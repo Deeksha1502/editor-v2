@@ -8,7 +8,7 @@ import { useEditorStore } from '../../store/editor.store';
 import { useTreeStore } from '../../store/tree.store';
 import { useQuestionStore } from '../../store/question.store';
 import { useUiStore } from '../../store/ui.store';
-import { isEditingAllowed } from '../../utils/context';
+import { isEditingAllowed, isDynamicAssessQuestionSet } from '../../utils/context';
 import { telemetryImpression, setTelemetryPageId } from '../../utils/telemetry';
 import { useFramework, allKnownFrameworkCategoryCodes } from '../../hooks/useFramework';
 import { useQuestionRead } from '../../hooks/useQuestionRead';
@@ -76,6 +76,7 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
   const { isFetching: isQuestionLoading } = useQuestionRead();
 
   const storeEditorMode = useEditorStore((s) => s.editorMode);
+  const isDynamicAssess = useEditorStore((s) => isDynamicAssessQuestionSet(s.editorConfig?.config?.primaryCategory));
   const showPreview = useEditorStore((s) => s.showPreview);
   const previewQuestionId = useEditorStore((s) => s.previewQuestionId);
   const isCurrentNodeRoot = useEditorStore((s) => s.isCurrentNodeRoot);
@@ -434,7 +435,8 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
                       node={useTreeStore.getState().getNodeById(selectedNodeId ?? '') ?? { id: selectedNodeId ?? '', identifier: selectedNodeId ?? '', name: '' }}
                       onOpenEditor={() => setInlineEditorOpen(true)}
                       onRemove={() => openModal('confirmDelete', { nodeId: selectedNodeId })}
-                      isEditMode={editorMode === 'edit'}
+                      // Dynamic sets are curated only by Generate, and their questions are shared pool items.
+                      isEditMode={editorMode === 'edit' && !isDynamicAssess}
                     />
                   </div>
                 )}

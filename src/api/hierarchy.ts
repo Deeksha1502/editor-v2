@@ -175,6 +175,11 @@ export async function publishContent(contentId: string, lastPublishedBy = ''): P
   });
 }
 
+/** POST questionset/v5/refresh/body/:id: queues pool-based question selection; a pool rejection throws like any other call. */
+export async function refreshQuestionSetBody(contentId: string): Promise<void> {
+  await apiClient.post(`${URLS.questionSet.refreshBody}/${contentId}`);
+}
+
 export async function sendForReview(contentId: string): Promise<void> {
   await apiClient.post(`${URLS.questionSet.review}/${contentId}`, {
     request: { questionset: {} },

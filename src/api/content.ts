@@ -43,3 +43,32 @@ export async function compositeSearch(params: {
     count: (result.count ?? 0) as number,
   };
 }
+
+/** Live Question counts per skill x difficultyLevel, the availability the job allocates from (same channel + category filters, no visibility filter). */
+export async function questionBucketCounts(
+  categoryField: string,
+  skills: string[],
+  channel?: string,
+): Promise<Record<string, Record<'E' | 'M' | 'D', number>>> {
+  const levels = [['E', 'EASY'], ['M', 'MEDIUM'], ['D', 'DIFFICULT']] as const;
+  const pairs = skills.flatMap((skill) => levels.map(([key, difficultyLevel]) => ({ skill, key, difficultyLevel })));
+  const responses = await Promise.all(pairs.map(({ skill, difficultyLevel }) => {
+    const filters: Record<string, unknown> = { status: ['Live'], objectType: 'Question', [categoryField]: [skill], difficultyLevel };
+    if (channel) filters.channel = channel;
+    return apiClient.post(URLS.composite.search, { request: { filters, fields: ['identifier'], limit: 1 } });
+  }));
+  const out: Record<string, Record<'E' | 'M' | 'D', number>> = {};
+  pairs.forEach(({ skill, key }, i) => {
+    out[skill] = out[skill] ?? { E: 0, M: 0, D: 0 };
+    out[skill][key] = Number(responses[i].data?.result?.count ?? 0) || 0;
+  });
+  return out;
+}
+
+/** Live Question counts per skill, with the same filters knowlg-service uses to reject a refresh (no channel, any level). */
+export async function questionSkillCounts(categoryField: string, skills: string[]): Promise<Record<string, number>> {
+  const responses = await Promise.all(skills.map((skill) => apiClient.post(URLS.composite.search, {
+    request: { filters: { status: ['Live'], objectType: 'Question', [categoryField]: [skill] }, fields: ['identifier'], limit: 1 },
+  })));
+  return Object.fromEntries(skills.map((skill, i) => [skill, Number(responses[i].data?.result?.count ?? 0) || 0]));
+}

@@ -241,7 +241,20 @@
       "copyFailed": "تعذّر نسخ هذا السؤال — يرجى المحاولة مرة أخرى",
       "copyPublishFailed": "تم النسخ، ولكن تعذّر النشر — سيبقى مسودة.",
       "republishFailed": "تم حفظ السؤال، ولكن تعذّر نشره — سيبقى هذا التعديل مخفيًا حتى تتم إعادة نشره.",
-      "publishFailed": "تم إنشاء السؤال، ولكن تعذّر نشره — سيبقى مسودة ولن يظهر في المكتبة حتى يتم نشره."
+      "publishFailed": "تم إنشاء السؤال، ولكن تعذّر نشره — سيبقى مسودة ولن يظهر في المكتبة حتى يتم نشره.",
+      "dynamicAssessInputs": "حدّد المهارة وهدف الصعوبة قبل إنشاء الأسئلة.",
+      "dynamicAssessPoolCheck": "تعذّر التحقق من توفر الأسئلة. يرجى المحاولة مرة أخرى.",
+      "dynamicAssessPool": "لا توجد أسئلة كافية للمهارات المحددة",
+      "dynamicAssessRefresh": "تعذّر إنشاء الأسئلة. يرجى المحاولة مرة أخرى.",
+      "dynamicAssessInit": "تعذّر إنشاء الأسئلة لمجموعة الأسئلة هذه.",
+      "dynamicAssessShortfall": "{LEVEL}: المطلوب {REQUESTED} يحتاج {NEEDED}، المتاح {AVAILABLE}",
+      "dynamicAssessPending": "لم تظهر الأسئلة بعد. قد يكون الإنشاء لا يزال جاريًا، أو ربما فشل (مثلًا بسبب قلة الأسئلة لإحدى المهارات). أعد فتح مجموعة الأسئلة هذه بعد لحظات، أو تحقّق من المجموعة وحاول مرة أخرى.",
+      "difficultyTargetEmpty": "يجب أن يحتوي {FIELD} على سؤال واحد على الأقل",
+      "dynamicAssessSkillPool": "تحتاج كل مهارة إلى {NEEDED} أسئلة منشورة على الأقل. عددها قليل جدًا لـ: {SKILLS}",
+      "dynamicAssessTooManySkills": "مع {COUNT} مهارات، يجب أن يكون مجموع هدف الصعوبة {NEEDED} على الأقل (تحصل كل مهارة على {MIN} أسئلة على الأقل). ارفع الهدف أو أزل مهارة.",
+      "dynamicAssessSkillLevels": "لا توجد أسئلة كافية في مستويات الصعوبة المحددة لـ: {SKILLS}. يجب أن توفّر كل مهارة سؤالين على الأقل في هذه المستويات.",
+      "dynamicAssessSavedNotGenerated": "تم الحفظ، لكن لم تتم إعادة إنشاء الأسئلة: {REASON}",
+      "dynamicAssessPendingSave": "لا يزال إنشاء الأسئلة جاريًا. أعد فتح مجموعة الأسئلة هذه قبل الحفظ."
     },
     "success": {
       "001": "تم حفظ المحتوى",
@@ -258,7 +271,17 @@
       "040": "تم إعادة المحتوى للتصحيح",
       "043": "تم حفظ التعليق بنجاح",
       "questionAdded": "تمت إضافة \"{NAME}\"",
-      "questionCopied": "تم نسخ \"{NAME}\""
+      "questionCopied": "تم نسخ \"{NAME}\"",
+      "dynamicAssessRefresh": "تم إنشاء الأسئلة"
+    },
+    "info": {
+      "dynamicAssessGeneratingTitle": "جارٍ إنشاء الأسئلة",
+      "dynamicAssessGeneratingSub": "يتم اختيار الأسئلة من المجموعة وفق المهارات والصعوبة المحددة. يستغرق ذلك عادةً بضع ثوانٍ.",
+      "dynamicAssessStaleTitle": "تغيّرت الإعدادات منذ إنشاء الأسئلة",
+      "dynamicAssessStaleSub": "الأسئلة لا تطابق المهارة وهدف الصعوبة الحاليين. انقر على حفظ وإنشاء لتحديثها.",
+      "dynamicAssessStaleSubReadonly": "لم تعد الأسئلة تطابق المهارة أو هدف الصعوبة. اطلب تغييرات ليتمكن المنشئ من إعادة إنشائها.",
+      "dynamicAssessPendingTitle": "لا يزال إنشاء الأسئلة جاريًا",
+      "dynamicAssessPendingSub": "أعد فتح مجموعة الأسئلة هذه بعد لحظات لرؤيتها. تم إيقاف الحفظ مؤقتًا حتى لا تُستبدل الأسئلة الجديدة."
     }
   },
   "categoryLabels": {
@@ -451,6 +474,16 @@
     "sortAZ": "الترتيب أبجديًا (أ–ي)",
     "sortByRecent": "التبديل إلى الأحدث أولاً",
     "sortAZLabel": "أ–ي",
-    "hasRequiredFields": "يحتوي على حقول مطلوبة"
+    "hasRequiredFields": "يحتوي على حقول مطلوبة",
+    "generateBeforeReview": "احفظ مع المهارة وهدف الصعوبة لإنشاء الأسئلة قبل الإرسال للمراجعة",
+    "generateBeforePublish": "أنشئ الأسئلة قبل النشر",
+    "difficultyEasy": "سهل",
+    "difficultyMedium": "متوسط",
+    "difficultyDifficult": "صعب",
+    "generationStaleTip": "تغيّرت الإعدادات — احفظ لإعادة إنشاء الأسئلة أولاً",
+    "saveAndGenerate": "حفظ وإنشاء",
+    "saveAndGenerateHint": "يحفظ، ثم يختار أسئلة من المجموعة للمهارة وهدف الصعوبة الحاليين",
+    "regenerateQuestions": "إعادة الإنشاء",
+    "regenerateQuestionsHint": "اختر مجموعة عشوائية جديدة من الأسئلة لنفس المهارة وهدف الصعوبة"
   }
 }

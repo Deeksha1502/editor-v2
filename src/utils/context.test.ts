@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getUserId, getContentId } from './context';
+import { getUserId, getContentId, isDynamicAssessQuestionSet } from './context';
 import type { IContext } from '../types/editor';
 
 const base: IContext = {
@@ -26,5 +26,17 @@ describe('context normalization (old + new host contracts)', () => {
     expect(getContentId({ ...base, contentId: 'do_flat' })).toBe('do_flat');
     expect(getContentId(base)).toBe('');
     expect(getContentId(null)).toBe('');
+  });
+});
+
+describe('isDynamicAssessQuestionSet', () => {
+  it('matches only the exact Dynamic Assess primaryCategory', () => {
+    expect(isDynamicAssessQuestionSet('Dynamic QuestionSet')).toBe(true);
+  });
+
+  it('does not match other categories, or nothing at all', () => {
+    expect(isDynamicAssessQuestionSet('Practice Question Set')).toBe(false);
+    expect(isDynamicAssessQuestionSet(undefined)).toBe(false);
+    expect(isDynamicAssessQuestionSet(null)).toBe(false);
   });
 });

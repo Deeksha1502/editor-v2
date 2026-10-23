@@ -28,3 +28,10 @@ export function isEditingAllowed(mode: EditorMode, ctx?: IContext | null): boole
   if (mode === 'edit') return true;
   return (mode === 'orgreview' || mode === 'sourcingreview') && !!ctx?.enableReviewEdit;
 }
+
+/** Dynamic Assess is scoped to this primaryCategory, not to whether skill happens to be set. */
+export const DYNAMIC_ASSESS_QUESTIONSET_CATEGORY = 'Dynamic QuestionSet';
+
+export function isDynamicAssessQuestionSet(primaryCategory?: string | null): boolean {
+  return primaryCategory === DYNAMIC_ASSESS_QUESTIONSET_CATEGORY;
+}

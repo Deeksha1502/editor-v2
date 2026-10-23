@@ -2,11 +2,17 @@ import { useState, useEffect } from 'react';
 import type { IEditorConfig } from '../types/editor';
 import { useEditorStore } from '../store/editor.store';
 import { useTreeStore } from '../store/tree.store';
-import { readHierarchy, readQuestionSet } from '../api/hierarchy';
+import { readHierarchy, readQuestionSet, refreshQuestionSetBody } from '../api/hierarchy';
 import { getCategoryDefinition } from '../api/categoryDefinition';
 import { setApiBaseUrl, setApiSlug } from '../api/client';
-import { getContentId } from '../utils/context';
-import { resolveUiLanguage } from '../utils/labels';
+import { getContentId, isDynamicAssessQuestionSet } from '../utils/context';
+import { label, resolveUiLanguage } from '../utils/labels';
+import { apiErrorMessage, notifyError, notifySuccess } from '../utils/notify';
+import { toDifficultyTarget } from '../components/SparkMetaForm/SparkMetaForm';
+import { checkPool, generateAndWait, shouldPauseAfterPending, skillPoolErrorMessage, startEditorSession } from './useRefreshQuestionSetBody';
+import { getFramework } from '../api/framework';
+import { queryClient } from '../queryClient';
+import type { INode } from '../types/editor';
 
 interface UseEditorInitOptions {
   config: IEditorConfig;
@@ -23,8 +29,54 @@ export function useEditorInit({ config, onError }: UseEditorInitOptions) {
 
   useEffect(() => {
     let cancelled = false;
+    // A generation still running from a previously opened set stops instead of writing into this one.
+    startEditorSession();
+
+    // Runs after the editor is ready, under the Generate loader, so nothing can be saved over the job's write.
+    async function generateOnOpen(contentId: string, baselineRoot: INode | undefined) {
+      const { setButtonLoader } = useEditorStore.getState();
+      setButtonLoader('refreshBody', true);
+      try {
+        // Same pool check as Save & Generate, so settings the job can't fill don't block every open for the whole poll.
+        const meta = (baselineRoot?.metadata ?? {}) as Record<string, unknown>;
+        const frameworkId = String(meta.framework ?? '');
+        let problems: string[];
+        try {
+          // Same query key as useFramework, so the form reuses this fetch.
+          const framework = frameworkId
+            ? await queryClient.fetchQuery({ queryKey: ['framework', frameworkId], queryFn: () => getFramework(frameworkId), staleTime: 10 * 60 * 1000 })
+            : undefined;
+          problems = await checkPool((meta.skill as unknown[]).map(String), toDifficultyTarget(meta.difficultyTarget), framework, config.context.channel);
+        } catch (err) {
+          if (!cancelled) notifyError(label('messages.error.dynamicAssessPoolCheck', 'Could not verify question availability. Please try again.'), err);
+          return;
+        }
+        if (cancelled) return;
+        if (problems.length) { notifyError(problems.join(' ')); return; }
+
+        const { result, rootNode } = await generateAndWait(
+          { contentId, refresh: refreshQuestionSetBody, read: readHierarchy, isCancelled: () => cancelled }, baselineRoot,
+        );
+        if (cancelled || result === 'cancelled') return;
+        if (result === 'generated') {
+          if (rootNode) { setTreeData([rootNode]); selectNode(rootNode.id); }
+          notifySuccess(label('messages.success.dynamicAssessRefresh', 'Questions generated'));
+        } else {
+          // The editor still holds the empty tree, so saving stays allowed (it would generate); pausing would lock the author out on every open.
+          if (shouldPauseAfterPending(useTreeStore.getState().treeData[0])) setButtonLoader('refreshPending', true);
+          notifyError(label('messages.error.dynamicAssessPending', 'Questions haven\'t appeared yet. Generation may still be running, or it may have failed (for example, too few questions for a skill). Reopen this question set in a moment, or check the pool and try again.'));
+        }
+      } catch (err) {
+        if (!cancelled) notifyError(skillPoolErrorMessage(err) ?? apiErrorMessage(err, label('messages.error.dynamicAssessInit', 'Failed to generate questions for this question set.')), err);
+      } finally {
+        // A newer editor resets the loaders itself and may be running its own generation, so only this editor clears its own.
+        if (!cancelled) setButtonLoader('refreshBody', false);
+      }
+    }
 
     async function init() {
+      let autoGenerate = false;
+      let baselineRoot: INode | undefined;
       try {
         setIsLoading(true);
         setError(null);
@@ -34,6 +86,9 @@ export function useEditorInit({ config, onError }: UseEditorInitOptions) {
 
         setEditorConfig(config);
         setEditorMode(config.config.mode);
+        // The store outlives a single editor, so drop any generation state from a previously opened set.
+        useEditorStore.getState().setButtonLoader('refreshPending', false);
+        useEditorStore.getState().setButtonLoader('refreshBody', false);
         // UI labels — old ConfigService setLanguage (context lang → app-language).
         useEditorStore.getState().setUiLanguage(
           resolveUiLanguage(config.context.uiLanguage),
@@ -44,6 +99,18 @@ export function useEditorInit({ config, onError }: UseEditorInitOptions) {
 
         if (contentId) {
           const { rootNode } = await readHierarchy(contentId);
+
+          // Auto-generate an empty set on open, only for its author and only with saved inputs the job can use.
+          const rootMeta = (rootNode?.metadata ?? {}) as Record<string, unknown>;
+          const target = toDifficultyTarget(rootMeta.difficultyTarget);
+          autoGenerate =
+            config.config.mode === 'edit' &&
+            isDynamicAssessQuestionSet(config.config.primaryCategory) &&
+            (rootNode?.children?.length ?? 0) === 0 &&
+            Array.isArray(rootMeta.skill) && rootMeta.skill.length > 0 &&
+            (target.E ?? 0) + (target.M ?? 0) + (target.D ?? 0) > 0;
+          baselineRoot = rootNode;
+
           if (!cancelled) {
             const nodes = rootNode ? [rootNode] : [];
             setTreeData(nodes);
@@ -113,6 +180,8 @@ export function useEditorInit({ config, onError }: UseEditorInitOptions) {
         })();
 
         if (!cancelled) setIsReady(true);
+        const contentIdForGenerate = getContentId(config.context);
+        if (!cancelled && autoGenerate && contentIdForGenerate) void generateOnOpen(contentIdForGenerate, baselineRoot);
       } catch (err) {
         if (!cancelled) {
           const e = err instanceof Error ? err : new Error(String(err));
@@ -125,7 +194,7 @@ export function useEditorInit({ config, onError }: UseEditorInitOptions) {
     }
 
     init();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; startEditorSession(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.context.contentId, config.context.identifier]);
 

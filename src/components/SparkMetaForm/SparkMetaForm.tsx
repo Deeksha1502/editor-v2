@@ -6,11 +6,14 @@ import type { ITerm } from '../../types/framework';
 import { Icon } from '../shared/Icon';
 import type { ICategoryField } from '../../api/categoryDefinition';
 import { useEditorStore } from '../../store/editor.store';
+import { isDynamicAssessQuestionSet } from '../../utils/context';
 import { searchFrameworks } from '../../api/framework';
 import styles from './SparkMetaForm.module.scss';
 import ImagePickerModal from '../shared/ImagePickerModal';
 import ContentEditable from '../shared/ContentEditable';
 import { htmlToText } from '../../utils/html';
+import { useLabels } from '../../hooks/useLabels';
+import { label } from '../../utils/labels';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -160,6 +163,76 @@ function TimerHmsField({ seconds, disabled, onCommit, onBlur }: {
   );
 }
 
+// Dynamic Assess difficultyTarget: { E, M, D } counts entered as three number inputs.
+
+export interface DifficultyTarget {
+  E?: number;
+  M?: number;
+  D?: number;
+}
+
+export function toDifficultyTarget(v: unknown): DifficultyTarget {
+  // The API returns difficultyTarget JSON-stringified (the OCD declares it a string), so parse strings first.
+  let obj: unknown = v;
+  if (typeof v === 'string' && v.trim()) {
+    try { obj = JSON.parse(v); } catch { obj = undefined; }
+  }
+  if (obj && typeof obj === 'object') {
+    const o = obj as Record<string, unknown>;
+    return {
+      E: Number(o.E) || 0,
+      M: Number(o.M) || 0,
+      D: Number(o.D) || 0,
+    };
+  }
+  return { E: 0, M: 0, D: 0 };
+}
+
+/** Writes the string type the OCD declares rather than relying on the backend accepting either shape. */
+function serializeDifficultyTarget(v: DifficultyTarget): string {
+  return JSON.stringify({ E: v.E ?? 0, M: v.M ?? 0, D: v.D ?? 0 });
+}
+
+function DifficultyTargetInput({ value, disabled, onCommit, groupLabel }: {
+  value: DifficultyTarget;
+  disabled?: boolean;
+  onCommit: (v: DifficultyTarget) => void;
+  /** The field's own label, so screen readers announce the three counts as one group. */
+  groupLabel?: string;
+}) {
+  const set = (key: keyof DifficultyTarget, raw: string) => {
+    const n = raw === '' ? 0 : Math.max(0, Math.floor(Number(raw)) || 0);
+    onCommit({ ...value, [key]: n });
+  };
+
+  const L = useLabels();
+  const rows: Array<{ key: keyof DifficultyTarget; text: string }> = [
+    { key: 'E', text: L('ui.difficultyEasy', 'Easy') },
+    { key: 'M', text: L('ui.difficultyMedium', 'Medium') },
+    { key: 'D', text: L('ui.difficultyDifficult', 'Difficult') },
+  ];
+
+  return (
+    <div style={{ display: 'flex', gap: 12 }} role="group" aria-label={groupLabel || undefined}>
+      {rows.map(({ key, text }) => (
+        <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+          <span style={{ fontSize: 12, color: 'var(--sb-text-muted)' }} aria-hidden="true">{text}</span>
+          <input
+            type="number"
+            min={0}
+            step={1}
+            className={styles.input}
+            aria-label={text}
+            value={value[key] ?? 0}
+            onChange={(e) => set(key, e.target.value)}
+            disabled={disabled}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Types for range items (framework-driven options)
 // ---------------------------------------------------------------------------
@@ -217,12 +290,26 @@ function isMultiSelectField(field: ICategoryField): boolean {
   return field.inputType === 'multiselect' || isSkillField(field);
 }
 
+// difficultyTarget is matched by code, like skill: the category-definition API has no inputType for three number fields.
+function isDifficultyTargetField(field: ICategoryField): boolean {
+  return field.code?.toLowerCase() === 'difficultytarget';
+}
+
 // ---------------------------------------------------------------------------
 // Build per-field Zod validator (returns error message string | undefined)
 // ---------------------------------------------------------------------------
 
 function makeFieldValidator(field: ICategoryField) {
   return (value: unknown): string | true => {
+    if (isDifficultyTargetField(field)) {
+      const dt = toDifficultyTarget(value);
+      const total = (dt.E ?? 0) + (dt.M ?? 0) + (dt.D ?? 0);
+      if (field.required && total <= 0) {
+        return label('messages.error.difficultyTargetEmpty', '{FIELD} must have at least one question').replace('{FIELD}', String(field.label ?? ''));
+      }
+      return true;
+    }
+
     const inputType = isMultiSelectField(field) ? 'multiselect' : (field.inputType ?? 'text');
 
     if (inputType === 'multiselect' || inputType === 'keywords') {
@@ -397,6 +484,8 @@ export function adaptFieldsForFramework(
   frameworkTerms: Map<string, FrameworkTerm[]> | undefined,
   categoryOrder: string[] | undefined,
   isRoot: boolean,
+  // Skill rebinding is Dynamic QuestionSet-only; other categories keep their own skill field binding.
+  isDynamicAssess: boolean = isDynamicAssessQuestionSet(useEditorStore.getState().editorConfig?.config?.primaryCategory),
 ): ICategoryField[] {
   // No framework categories loaded yet (still fetching, or none selected) —
   // leave the static field list exactly as the category-definition API gave it.
@@ -436,6 +525,8 @@ export function adaptFieldsForFramework(
   // SECOND field for the very same category — the duplicate Board/Medium/
   // GradeLevel/Subject rows this fixes.
   const resolveCategoryCode = (field: ICategoryField): string | undefined => {
+    // skill always binds to the active framework's deepest category, matching the backend's resolveCategoryCode.
+    if (isDynamicAssess && isSkillField(field) && highestIndexCode) return highestIndexCode;
     if (field.sourceCategory) return field.sourceCategory;
     if (frameworkCategoryCodes.has(field.code)) return field.code;
     const byLabel = field.label?.trim().toLowerCase();
@@ -447,11 +538,10 @@ export function adaptFieldsForFramework(
     .map((f) => {
       if (!isFrameworkDrivenField(f)) return f;
       const categoryCode = resolveCategoryCode(f)!;
-      // Stamp the resolved category back onto the field (when it only
-      // matched via label) so buildOptions()/buildCascadedOptions() — which
-      // only ever look at sourceCategory ?? code, not this function's own
-      // resolution — also find the framework's live terms for it.
-      const withSourceCategory = f.sourceCategory ? f : { ...f, sourceCategory: categoryCode };
+      // Stamp the resolved category onto the field so buildOptions() finds its terms; skill's static sourceCategory is never trusted.
+      const withSourceCategory = (!f.sourceCategory || (isDynamicAssess && isSkillField(f) && f.sourceCategory !== categoryCode))
+        ? { ...f, sourceCategory: categoryCode }
+        : f;
       // required: true — a framework-driven category field is always
       // mandatory once the framework supplies it, at root and per-question
       // alike (matches the synthesized fields below).
@@ -502,7 +592,9 @@ function buildDefaultValues(
   for (const f of fields) {
     if (!f.visible || !fieldMatchesSection(f, section, showAllSections)) continue;
     const v = values[f.code];
-    if (isMultiSelectField(f) || f.inputType === 'keywords') {
+    if (isDifficultyTargetField(f)) {
+      defaults[f.code] = toDifficultyTarget(v);
+    } else if (isMultiSelectField(f) || f.inputType === 'keywords') {
       defaults[f.code] = Array.isArray(v) ? v : v ? [String(v)] : [];
     } else if (f.inputType === 'checkbox') {
       defaults[f.code] = Boolean(v);
@@ -1087,7 +1179,9 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
           || isShowTimer
           // Count select takes its own row — only the behaviour checkboxes
           // (shuffle/feedback/solution/hint) flow two per row.
-          || field.code === 'maxQuestions';
+          || field.code === 'maxQuestions'
+          // Three side-by-side number inputs need the full row, like the timer.
+          || isDifficultyTargetField(field);
         const fieldClass = [styles.field, isFullWidth ? styles.fieldFull : ''].filter(Boolean).join(' ');
         // Checkboxes (and showTimer's custom row) carry their label inline —
         // a separate uppercase header would duplicate it.
@@ -1116,6 +1210,18 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
               rules={{ validate: validator }}
               render={({ field: rhfField }) => {
                 const inputType = isMultiSelectField(field) ? 'multiselect' : (field.inputType ?? 'text');
+
+                // ── difficultyTarget — E/M/D question-count inputs ────────
+                if (isDifficultyTargetField(field)) {
+                  return (
+                    <DifficultyTargetInput
+                      value={toDifficultyTarget(rhfField.value)}
+                      disabled={isDisabled}
+                      groupLabel={field.label}
+                      onCommit={(next) => { rhfField.onChange(next); onChange(field.code, serializeDifficultyTarget(next)); }}
+                    />
+                  );
+                }
 
                 // ── richtext — renders HTML content via ContentEditable ───
                 if (inputType === 'richtext') {
