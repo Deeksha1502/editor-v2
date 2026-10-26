@@ -4,7 +4,7 @@ import { useEditorStore } from '../store/editor.store';
 import { updateHierarchy } from '../api/hierarchy';
 import type { INode } from '../types/editor';
 import type { IFramework } from '../types/framework';
-import { getContentId, getUserId } from '../utils/context';
+import { getContentId, getUserId, isDynamicAssessQuestionSet } from '../utils/context';
 import { notifyError, apiErrorMessage } from '../utils/notify';
 import { label } from '../utils/labels';
 import { queryClient } from '../queryClient';
@@ -34,7 +34,7 @@ function categoryCodesForFramework(frameworkId: string | undefined): Set<string>
 }
 
 
-function buildSavePayload(
+export function buildSavePayload(
   nodes: INode[],
   treeCache: Record<string, Record<string, unknown>>,
   channel: string,
@@ -191,8 +191,10 @@ function buildSavePayload(
       && queryClient.getQueryState(['framework', effectiveFramework])?.status === 'success';
     if (effectiveFramework && frameworkDataReady) {
       const currentCodes = categoryCodesForFramework(effectiveFramework);
+      // A Dynamic QuestionSet's skill holds the active framework's deepest-category terms (e.g. topic), so it is a generation input, not a stale category.
+      const keepSkill = isDynamicAssessQuestionSet(rootPrimaryCategory);
       for (const code of allKnownFrameworkCategoryCodes()) {
-        if (!currentCodes.has(code)) {
+        if (!currentCodes.has(code) && !(keepSkill && code === 'skill')) {
           rootEntry.metadata[code] = [];
         }
       }

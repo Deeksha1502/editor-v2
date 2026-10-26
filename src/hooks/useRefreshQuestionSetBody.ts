@@ -10,6 +10,7 @@ import { useSaveHierarchy, type SaveOutcome } from './useSaveHierarchy';
 import { toDifficultyTarget, type DifficultyTarget } from '../components/SparkMetaForm/SparkMetaForm';
 import { planPool } from '../utils/poolPlan';
 import { useValidateRequiredFields } from './useValidateAndSave';
+import { highestIndexCategoryCode } from './useFramework';
 import { DYNAMIC_ASSESS_MIN_CRITERIA, DYNAMIC_ASSESS_POOL_MULTIPLIER, isGenerationComplete } from '../utils/dynamicAssessDraw';
 import { queryClient } from '../queryClient';
 import type { INode } from '../types/editor';
@@ -64,9 +65,7 @@ export function skillPoolErrorMessage(err: unknown): string | null {
 
 /** The field the job's pool query filters on: the framework's highest-index category, else "skill". */
 export function deepestCategoryCode(framework: IFramework | undefined): string {
-  const cats = framework?.categories ?? [];
-  if (!cats.length) return 'skill';
-  return cats.reduce((a, b) => ((b.index ?? 0) > (a.index ?? 0) ? b : a)).code || 'skill';
+  return highestIndexCategoryCode(framework?.categories ?? []) ?? 'skill';
 }
 
 export const GENERATE_POLL_MS = 3000;
