@@ -35,3 +35,11 @@ export const DYNAMIC_ASSESS_QUESTIONSET_CATEGORY = 'Dynamic QuestionSet';
 export function isDynamicAssessQuestionSet(primaryCategory?: string | null): boolean {
   return primaryCategory === DYNAMIC_ASSESS_QUESTIONSET_CATEGORY;
 }
+
+/** The set's category: the host's config value when given, else the loaded root's own, so a host that omits it can't switch the Dynamic guards off. */
+export function resolvePrimaryCategory(
+  configCategory: string | null | undefined,
+  root: { primaryCategory?: string; metadata?: Record<string, unknown> } | undefined,
+): string | undefined {
+  return configCategory ?? root?.primaryCategory ?? (root?.metadata?.primaryCategory as string | undefined);
+}

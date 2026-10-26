@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getUserId, getContentId, isDynamicAssessQuestionSet } from './context';
+import { getUserId, getContentId, isDynamicAssessQuestionSet, resolvePrimaryCategory } from './context';
 import type { IContext } from '../types/editor';
 
 const base: IContext = {
@@ -38,5 +38,20 @@ describe('isDynamicAssessQuestionSet', () => {
     expect(isDynamicAssessQuestionSet('Practice Question Set')).toBe(false);
     expect(isDynamicAssessQuestionSet(undefined)).toBe(false);
     expect(isDynamicAssessQuestionSet(null)).toBe(false);
+  });
+});
+
+describe('resolvePrimaryCategory', () => {
+  it('uses the host config value when given, even if the root says otherwise (negative)', () => {
+    expect(resolvePrimaryCategory('Practice Question Set', { primaryCategory: 'Dynamic QuestionSet' })).toBe('Practice Question Set');
+  });
+
+  it('falls back to the loaded root when the host omits it, so Dynamic guards stay on (positive)', () => {
+    expect(resolvePrimaryCategory(undefined, { primaryCategory: 'Dynamic QuestionSet' })).toBe('Dynamic QuestionSet');
+    expect(resolvePrimaryCategory(undefined, { metadata: { primaryCategory: 'Dynamic QuestionSet' } })).toBe('Dynamic QuestionSet');
+  });
+
+  it('is undefined with neither a config value nor a root (negative)', () => {
+    expect(resolvePrimaryCategory(undefined, undefined)).toBeUndefined();
   });
 });

@@ -9,6 +9,7 @@ import { findMissingRequiredFields, adaptFieldsForFramework } from '../component
 import { label } from '../utils/labels';
 import { useSaveHierarchy } from './useSaveHierarchy';
 import { useFramework } from './useFramework';
+import { useIsDynamicAssess } from './useIsDynamicAssess';
 
 /**
  * Validates root + all sections' required fields (same check "Save as Draft"
@@ -30,6 +31,7 @@ export function useValidateRequiredFields(): () => boolean {
   // would keep flagging e.g. Industry/Domain/Skill as required under a
   // framework (CBSE, NCF, ...) that doesn't even have those categories.
   const { frameworkTerms, categoryOrder } = useFramework();
+  const isDynamicAssess = useIsDynamicAssess();
 
   const validateRequiredFields = useCallback((): boolean => {
     const { rootFormConfig, unitFormConfig } = useEditorStore.getState();
@@ -59,7 +61,7 @@ export function useValidateRequiredFields(): () => boolean {
       // root; a section's own required fields come straight from its raw
       // unitFormConfig (Details/Behaviour only).
       const adapted = isRoot
-        ? adaptFieldsForFramework(fields ?? [], frameworkTerms, categoryOrder, isRoot)
+        ? adaptFieldsForFramework(fields ?? [], frameworkTerms, categoryOrder, isRoot, isDynamicAssess)
         : (fields ?? []);
       for (const f of findMissingRequiredFields(adapted, meta)) {
         const tab = (f.section && TAB_LABELS[f.section]) || detailsLabel;
@@ -90,7 +92,7 @@ export function useValidateRequiredFields(): () => boolean {
     }
 
     return true;
-  }, [setMissingFieldGroups, frameworkTerms, categoryOrder]);
+  }, [setMissingFieldGroups, frameworkTerms, categoryOrder, isDynamicAssess]);
 
   return validateRequiredFields;
 }

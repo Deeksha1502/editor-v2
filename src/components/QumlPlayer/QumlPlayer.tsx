@@ -19,7 +19,7 @@ import type { INode } from '../../types/editor';
 import styles from './QumlPlayer.module.scss';
 import { useLabels } from '../../hooks/useLabels';
 import { detectNodeKind } from '../../utils/nodeKind';
-import { getUserId, isDynamicAssessQuestionSet } from '../../utils/context';
+import { getUserId, isDynamicAssessQuestionSet, resolvePrimaryCategory } from '../../utils/context';
 import { withDynamicDraw } from '../../utils/dynamicAssessDraw';
 
 const PLAYER_TAG = 'sunbird-quml-player';
@@ -151,7 +151,7 @@ const QumlPlayer: React.FC<QumlPlayerProps> = ({ questionSetId, singleQuestionId
             if (questionIds.length) {
               try {
                 // question/list accepts at most 20 ids per request, so a Dynamic draw larger than that is fetched in batches; other sets keep the single request.
-                const isDynamic = isDynamicAssessQuestionSet(editorConfig?.config?.primaryCategory as string | undefined);
+                const isDynamic = isDynamicAssessQuestionSet(resolvePrimaryCategory(editorConfig?.config?.primaryCategory as string | undefined, treeData[0]));
                 const batches = isDynamic
                   ? Array.from({ length: Math.ceil(questionIds.length / QUESTION_LIST_LIMIT) }, (_, i) => questionIds.slice(i * QUESTION_LIST_LIMIT, (i + 1) * QUESTION_LIST_LIMIT))
                   : [questionIds];

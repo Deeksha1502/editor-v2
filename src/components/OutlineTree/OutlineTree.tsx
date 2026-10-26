@@ -8,7 +8,8 @@ import { useValidateAndSave } from '../../hooks/useValidateAndSave';
 import type { INode } from '../../types/editor';
 import { resolveQuestionType } from '../../registry';
 import { detectNodeKind } from '../../utils/nodeKind';
-import { isDynamicAssessQuestionSet, getUserId } from '../../utils/context';
+import { getUserId } from '../../utils/context';
+import { useIsDynamicAssess } from '../../hooks/useIsDynamicAssess';
 import { withDynamicDraw } from '../../utils/dynamicAssessDraw';
 
 const EMPTY_CACHE: Record<string, Record<string, unknown>> = {};
@@ -120,6 +121,8 @@ interface NodeProps {
   openIds: Set<string>;
   contextMenuId: string | null;
   isEditMode: boolean;
+  /** Dynamic Assess in edit mode: no curation, but a question's menu still offers Preview. */
+  previewOnlyMenu?: boolean;
   onSelect: (id: string) => void;
   onToggle: (id: string) => void;
   onOpenCtx: (id: string) => void;
@@ -130,7 +133,7 @@ interface NodeProps {
 }
 
 const TreeNode: React.FC<NodeProps> = ({
-  node, selectedId, openIds, contextMenuId, isEditMode,
+  node, selectedId, openIds, contextMenuId, isEditMode, previewOnlyMenu = false,
   onSelect, onToggle, onOpenCtx, onCloseCtx,
   onAddSection, onDelete, onPreview,
 }) => {
@@ -195,7 +198,7 @@ const TreeNode: React.FC<NodeProps> = ({
 
 
         {/* Context menu */}
-        {isEditMode && (
+        {(isEditMode || (previewOnlyMenu && isQuestion)) && (
           <div style={{ position: 'relative', marginLeft: isQuestion ? undefined : '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
             <button
               style={{
@@ -236,6 +239,7 @@ const TreeNode: React.FC<NodeProps> = ({
               openIds={openIds}
               contextMenuId={contextMenuId}
               isEditMode={isEditMode}
+              previewOnlyMenu={previewOnlyMenu}
               onSelect={onSelect}
               onToggle={onToggle}
               onOpenCtx={onOpenCtx}
@@ -263,7 +267,7 @@ const OutlineTree: React.FC<OutlineTreeProps> = ({ onCollapse }) => {
   const addNode = useTreeStore((s) => s.addNode);
   const deleteNode = useTreeStore((s) => s.deleteNode);
   const editorMode = useEditorStore((s) => s.editorMode);
-  const isDynamicAssess = useEditorStore((s) => isDynamicAssessQuestionSet(s.editorConfig?.config?.primaryCategory));
+  const isDynamicAssess = useIsDynamicAssess();
   // Subscribed only for Dynamic sets, so ordinary sets don't re-render the outline on every metadata edit.
   const treeCache = useTreeStore((s) => (isDynamicAssess ? s.treeCache : EMPTY_CACHE));
   const userId = useEditorStore((s) => getUserId(s.editorConfig?.context));
@@ -370,6 +374,7 @@ const OutlineTree: React.FC<OutlineTreeProps> = ({ onCollapse }) => {
               openIds={openIds}
               contextMenuId={contextMenuId}
               isEditMode={isEditMode}
+              previewOnlyMenu={editorMode === 'edit' && isDynamicAssess}
               onSelect={handleSelect}
               onToggle={handleToggle}
               onOpenCtx={setContextMenuId}

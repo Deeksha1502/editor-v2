@@ -6,7 +6,7 @@ import type { ITerm } from '../../types/framework';
 import { Icon } from '../shared/Icon';
 import type { ICategoryField } from '../../api/categoryDefinition';
 import { useEditorStore } from '../../store/editor.store';
-import { isDynamicAssessQuestionSet } from '../../utils/context';
+import { useIsDynamicAssess } from '../../hooks/useIsDynamicAssess';
 import { searchFrameworks } from '../../api/framework';
 import styles from './SparkMetaForm.module.scss';
 import ImagePickerModal from '../shared/ImagePickerModal';
@@ -484,8 +484,8 @@ export function adaptFieldsForFramework(
   frameworkTerms: Map<string, FrameworkTerm[]> | undefined,
   categoryOrder: string[] | undefined,
   isRoot: boolean,
-  // Skill rebinding is Dynamic QuestionSet-only; other categories keep their own skill field binding.
-  isDynamicAssess: boolean = isDynamicAssessQuestionSet(useEditorStore.getState().editorConfig?.config?.primaryCategory),
+  // Skill rebinding is Dynamic QuestionSet-only; other categories keep their own skill field binding. Callers pass useIsDynamicAssess().
+  isDynamicAssess: boolean,
 ): ICategoryField[] {
   // No framework categories loaded yet (still fetching, or none selected) —
   // leave the static field list exactly as the category-definition API gave it.
@@ -1073,9 +1073,10 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
   // Drop/add category fields that don't/do belong to the selected framework
   // (e.g. Industry/Domain/Skill for USF vs board/medium/gradeLevel/subject
   // for a K-12 framework like CBSE) — see adaptFieldsForFramework above.
+  const isDynamicAssess = useIsDynamicAssess();
   const adaptedFields = useMemo(
-    () => adaptFieldsForFramework(fields, frameworkTerms, categoryOrder, isRoot),
-    [fields, frameworkTerms, categoryOrder, isRoot],
+    () => adaptFieldsForFramework(fields, frameworkTerms, categoryOrder, isRoot, isDynamicAssess),
+    [fields, frameworkTerms, categoryOrder, isRoot, isDynamicAssess],
   );
 
   // Filter to only visible fields for this section

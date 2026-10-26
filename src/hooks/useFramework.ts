@@ -5,7 +5,7 @@ import { useTreeStore } from '../store/tree.store';
 import { getFramework } from '../api/framework';
 import { queryClient } from '../queryClient';
 import type { IFramework, ITerm } from '../types/framework';
-import { isDynamicAssessQuestionSet } from '../utils/context';
+import { useIsDynamicAssess } from './useIsDynamicAssess';
 
 /** The backend's skill category rule (knowlg-service and the knowlg-publish job): highest `index`, a missing index counts as 0, the first wins on ties. */
 export function highestIndexCategoryCode(categories: Array<{ code: string; index?: number }>): string | undefined {
@@ -92,7 +92,7 @@ export function useFramework(overrideFrameworkId?: string) {
   // accidentally become "highest index" and unlock multiselect it shouldn't
   // have. Consumers (SparkMetaForm's single-vs-multi-select rule) treat the
   // last entry as the skill-equivalent leaf category.
-  const isDynamicAssess = useEditorStore((s) => isDynamicAssessQuestionSet(s.editorConfig?.config?.primaryCategory));
+  const isDynamicAssess = useIsDynamicAssess();
   const categoryOrder = useMemo<string[]>(
     () => orderCategoryCodes(orgQuery.data?.categories ?? [], isDynamicAssess),
     [orgQuery.data, isDynamicAssess],

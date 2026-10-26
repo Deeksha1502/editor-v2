@@ -11,6 +11,7 @@ import { toDifficultyTarget, type DifficultyTarget } from '../components/SparkMe
 import { planPool } from '../utils/poolPlan';
 import { useValidateRequiredFields } from './useValidateAndSave';
 import { highestIndexCategoryCode } from './useFramework';
+import { getFramework } from '../api/framework';
 import { DYNAMIC_ASSESS_MIN_CRITERIA, DYNAMIC_ASSESS_POOL_MULTIPLIER, isGenerationComplete } from '../utils/dynamicAssessDraw';
 import { queryClient } from '../queryClient';
 import type { INode } from '../types/editor';
@@ -60,7 +61,9 @@ export function skillPoolErrorMessage(err: unknown): string | null {
   const response = (err as { response?: { data?: { params?: { err?: string } } } })?.response;
   if (response?.data?.params?.err !== 'ERR_SKILL_INSUFFICIENT_POOL') return null;
   const match = /Fewer than (\d+).*skill\(s\):\s*(.+)$/.exec(err instanceof Error ? err.message : '');
-  return skillPoolMessage(match?.[1] ?? '', match ? match[2].split(',').map((s) => s.trim()) : []);
+  // Reworded server text falls back to the server's own message rather than a template with blanks.
+  if (!match) return null;
+  return skillPoolMessage(match[1], match[2].split(',').map((s) => s.trim()));
 }
 
 /** The field the job's pool query filters on: the framework's highest-index category, else "skill". */
@@ -150,7 +153,8 @@ export async function generateAndWait(
 
 /** Save, then generate: inputs only exist in treeCache until saved. */
 export async function saveThenGenerate(deps: GenerateDeps): Promise<{ result: GenerateResult; rootNode?: INode }> {
-  if ((await deps.save()) === 'failed') return { result: 'failed' };
+  // Only a completed save persisted Skill/Target; 'not-attempted' (e.g. a save already in flight) must not generate from the old settings.
+  if ((await deps.save()) !== 'saved') return { result: 'failed' };
   // Baseline after the save, since the save itself bumps lastUpdatedOn.
   return generateAndWait(deps, (await deps.read(deps.contentId)).rootNode);
 }
@@ -198,9 +202,13 @@ export function useRefreshQuestionSetBody() {
       if (!skills.length || (target.E ?? 0) + (target.M ?? 0) + (target.D ?? 0) <= 0) {
         return await blocked(label('messages.error.dynamicAssessInputs', 'Set Skill and Difficulty Target before generating questions.'));
       }
-      const framework = queryClient.getQueryData<IFramework>(['framework', String(meta.framework ?? '')]);
+      const frameworkId = String(meta.framework ?? '');
       let problems: string[];
       try {
+        // Fetched, not just read from cache, so the pool check never falls back to 'skill' because the framework hadn't loaded yet.
+        const framework = frameworkId
+          ? await queryClient.fetchQuery({ queryKey: ['framework', frameworkId], queryFn: () => getFramework(frameworkId), staleTime: 10 * 60 * 1000 })
+          : undefined;
         problems = await checkPool(skills, target, framework, config?.context?.channel);
       } catch (err) {
         if (!isCancelled()) notifyError(label('messages.error.dynamicAssessPoolCheck', 'Could not verify question availability. Please try again.'), err);

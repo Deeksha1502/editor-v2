@@ -4,7 +4,7 @@ import { useEditorStore } from '../store/editor.store';
 import { updateHierarchy } from '../api/hierarchy';
 import type { INode } from '../types/editor';
 import type { IFramework } from '../types/framework';
-import { getContentId, getUserId, isDynamicAssessQuestionSet } from '../utils/context';
+import { getContentId, getUserId, isDynamicAssessQuestionSet, resolvePrimaryCategory } from '../utils/context';
 import { notifyError, apiErrorMessage } from '../utils/notify';
 import { label } from '../utils/labels';
 import { queryClient } from '../queryClient';
@@ -39,6 +39,8 @@ export function buildSavePayload(
   treeCache: Record<string, Record<string, unknown>>,
   channel: string,
   rootPrimaryCategory: string,
+  // Resolved separately from rootPrimaryCategory, which defaults to Practice Question Set for new sections when the host omits it.
+  isDynamicAssess: boolean = isDynamicAssessQuestionSet(rootPrimaryCategory),
 ): { nodesModified: Record<string, unknown>; hierarchy: Record<string, unknown> } {
   const nodesModified: Record<string, unknown> = {};
   const hierarchy: Record<string, unknown> = {};
@@ -192,7 +194,7 @@ export function buildSavePayload(
     if (effectiveFramework && frameworkDataReady) {
       const currentCodes = categoryCodesForFramework(effectiveFramework);
       // A Dynamic QuestionSet's skill holds the active framework's deepest-category terms (e.g. topic), so it is a generation input, not a stale category.
-      const keepSkill = isDynamicAssessQuestionSet(rootPrimaryCategory);
+      const keepSkill = isDynamicAssess;
       for (const code of allKnownFrameworkCategoryCodes()) {
         if (!currentCodes.has(code) && !(keepSkill && code === 'skill')) {
           rootEntry.metadata[code] = [];
@@ -279,7 +281,8 @@ export function useSaveHierarchy() {
       swapTempSectionIds(useTreeStore.getState().treeData);
 
       const { treeData, treeCache, replaceNodeId } = useTreeStore.getState();
-      const { nodesModified, hierarchy } = buildSavePayload(treeData, treeCache, channel, rootPrimaryCategory);
+      const isDynamicAssess = isDynamicAssessQuestionSet(resolvePrimaryCategory(config.config.primaryCategory, treeData[0]));
+      const { nodesModified, hierarchy } = buildSavePayload(treeData, treeCache, channel, rootPrimaryCategory, isDynamicAssess);
       const { identifiers } = await updateHierarchy(contentId, nodesModified, hierarchy, lastUpdatedBy);
       // Swap temp- IDs with the real identifiers returned by the backend
       for (const [tempId, realId] of Object.entries(identifiers)) {

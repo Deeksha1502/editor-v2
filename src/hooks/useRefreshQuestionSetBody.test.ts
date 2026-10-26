@@ -56,6 +56,10 @@ describe('skillPoolErrorMessage', () => {
     expect(skillPoolErrorMessage(rejection('ERR_OTHER', 'boom'))).toBeNull();
     expect(skillPoolErrorMessage(new Error('Network Error'))).toBeNull();
   });
+
+  it('falls back to the server message, not blank placeholders, when the wording changes (negative)', () => {
+    expect(skillPoolErrorMessage(rejection('ERR_SKILL_INSUFFICIENT_POOL', 'Pool too small for Azure'))).toBeNull();
+  });
 });
 
 describe('deepestCategoryCode', () => {
@@ -107,6 +111,17 @@ describe('saveThenGenerate (Dynamic Assess Generate Questions)', () => {
       contentId: 'do_root', save: async () => 'saved', refresh: async () => {}, read, sleep: noSleep,
     });
     expect(out.result).toBe('generated');
+  });
+
+  it('does not generate when the save was not attempted, e.g. another save in flight (negative)', async () => {
+    const refresh = vi.fn();
+    const read = vi.fn();
+    const out = await saveThenGenerate({
+      contentId: 'do_root', save: async () => 'not-attempted', refresh, read, sleep: noSleep,
+    });
+    expect(out.result).toBe('failed');
+    expect(refresh).not.toHaveBeenCalled();
+    expect(read).not.toHaveBeenCalled();
   });
 
   it('does not call refresh-body when the save fails (negative)', async () => {

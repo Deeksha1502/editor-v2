@@ -8,7 +8,8 @@ import { useEditorStore } from '../../store/editor.store';
 import { useTreeStore } from '../../store/tree.store';
 import { useQuestionStore } from '../../store/question.store';
 import { useUiStore } from '../../store/ui.store';
-import { isEditingAllowed, isDynamicAssessQuestionSet } from '../../utils/context';
+import { isEditingAllowed } from '../../utils/context';
+import { useIsDynamicAssess } from '../../hooks/useIsDynamicAssess';
 import { telemetryImpression, setTelemetryPageId } from '../../utils/telemetry';
 import { useFramework, allKnownFrameworkCategoryCodes } from '../../hooks/useFramework';
 import { useQuestionRead } from '../../hooks/useQuestionRead';
@@ -76,7 +77,7 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
   const { isFetching: isQuestionLoading } = useQuestionRead();
 
   const storeEditorMode = useEditorStore((s) => s.editorMode);
-  const isDynamicAssess = useEditorStore((s) => isDynamicAssessQuestionSet(s.editorConfig?.config?.primaryCategory));
+  const isDynamicAssess = useIsDynamicAssess();
   const showPreview = useEditorStore((s) => s.showPreview);
   const previewQuestionId = useEditorStore((s) => s.previewQuestionId);
   const isCurrentNodeRoot = useEditorStore((s) => s.isCurrentNodeRoot);
@@ -234,11 +235,11 @@ const ContextualEditor: React.FC<ContextualEditorProps> = ({
     (tab: TabDef): boolean => {
       if (isCurrentNodeQuestion) return false;
       const fields = isCurrentNodeRoot
-        ? adaptFieldsForFramework(formConfig ?? [], frameworkTerms, categoryOrder, isCurrentNodeRoot)
+        ? adaptFieldsForFramework(formConfig ?? [], frameworkTerms, categoryOrder, isCurrentNodeRoot, isDynamicAssess)
         : (formConfig ?? []);
       return fields.some((f) => f.visible && f.required && fieldMatchesSection(f, tab.section));
     },
-    [isCurrentNodeQuestion, formConfig, isCurrentNodeRoot, frameworkTerms, categoryOrder],
+    [isCurrentNodeQuestion, formConfig, isCurrentNodeRoot, frameworkTerms, categoryOrder, isDynamicAssess],
   );
 
   // Meta subtitle

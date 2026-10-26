@@ -5,7 +5,7 @@ import { useTreeStore } from '../store/tree.store';
 import { readHierarchy, readQuestionSet, refreshQuestionSetBody } from '../api/hierarchy';
 import { getCategoryDefinition } from '../api/categoryDefinition';
 import { setApiBaseUrl, setApiSlug } from '../api/client';
-import { getContentId, isDynamicAssessQuestionSet } from '../utils/context';
+import { getContentId, isDynamicAssessQuestionSet, resolvePrimaryCategory } from '../utils/context';
 import { label, resolveUiLanguage } from '../utils/labels';
 import { apiErrorMessage, notifyError, notifySuccess } from '../utils/notify';
 import { toDifficultyTarget } from '../components/SparkMetaForm/SparkMetaForm';
@@ -46,7 +46,8 @@ export function useEditorInit({ config, onError }: UseEditorInitOptions) {
           const framework = frameworkId
             ? await queryClient.fetchQuery({ queryKey: ['framework', frameworkId], queryFn: () => getFramework(frameworkId), staleTime: 10 * 60 * 1000 })
             : undefined;
-          problems = await checkPool((meta.skill as unknown[]).map(String), toDifficultyTarget(meta.difficultyTarget), framework, config.context.channel);
+          const skills = Array.isArray(meta.skill) ? meta.skill.map(String) : [];
+          problems = await checkPool(skills, toDifficultyTarget(meta.difficultyTarget), framework, config.context.channel);
         } catch (err) {
           if (!cancelled) notifyError(label('messages.error.dynamicAssessPoolCheck', 'Could not verify question availability. Please try again.'), err);
           return;
@@ -105,7 +106,7 @@ export function useEditorInit({ config, onError }: UseEditorInitOptions) {
           const target = toDifficultyTarget(rootMeta.difficultyTarget);
           autoGenerate =
             config.config.mode === 'edit' &&
-            isDynamicAssessQuestionSet(config.config.primaryCategory) &&
+            isDynamicAssessQuestionSet(resolvePrimaryCategory(config.config.primaryCategory, rootNode)) &&
             (rootNode?.children?.length ?? 0) === 0 &&
             Array.isArray(rootMeta.skill) && rootMeta.skill.length > 0 &&
             (target.E ?? 0) + (target.M ?? 0) + (target.D ?? 0) > 0;

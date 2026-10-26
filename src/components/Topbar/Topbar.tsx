@@ -10,7 +10,7 @@ import { QualityParamsModal } from '../modals/QualityParamsModal';
 import styles from './Topbar.module.scss';
 import { labelFrom } from '../../utils/labels';
 import { telemetryInteract } from '../../utils/telemetry';
-import { isDynamicAssessQuestionSet } from '../../utils/context';
+import { useIsDynamicAssess } from '../../hooks/useIsDynamicAssess';
 import { isGenerationStale, needsGeneration } from '../../utils/dynamicAssessDraw';
 import { RegenerateButton } from '../shared/RegenerateButton';
 import { useDynamicSkillField } from '../../hooks/useDynamicSkillField';
@@ -276,7 +276,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   const hideSubmitForReview = !!editorConfig?.config?.hideSubmitForReviewBtn;
 
   // ── Dynamic Assess ─────────────────────────────────────────────────────
-  const isDynamicAssess = isDynamicAssessQuestionSet(editorConfig?.config?.primaryCategory);
+  const isDynamicAssess = useIsDynamicAssess();
   // Dynamic sets count questions only: a section-only root has nothing generated.
   const hasChildren = isDynamicAssess ? !!rootNode?.children?.some((c) => c.isQuestion) : (rootNode?.children?.length ?? 0) > 0;
   const skillField = useDynamicSkillField();
@@ -412,7 +412,8 @@ export const Topbar: React.FC<TopbarProps> = ({
             className="ce-btn ghost"
             type="button"
             onClick={() => emit('preview', undefined, { id: 'preview', subtype: 'launch' })}
-            disabled={isSaving || generationPending}
+            // Preview saves first in edit mode, so it waits out a Dynamic generation like Save does.
+            disabled={isSaving || generationPending || (isDynamicAssess && buttonLoaders.refreshBody)}
             title="Preview question set"
           >
             <Icon name="play" size={15} />
