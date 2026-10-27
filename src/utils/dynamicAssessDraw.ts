@@ -75,6 +75,12 @@ export function withDynamicDraw(root: INode, treeCache: Record<string, Record<st
   return { ...root, children: (root.children ?? []).filter((c) => visible.has(c.identifier)) };
 }
 
+/** The selected skills: the terms in the framework's deepest category field (`skillField`, e.g. "topic"), the same field the backend reads them from. */
+export function selectedSkills(meta: Record<string, unknown>, skillField: string): string[] {
+  const v = meta[skillField];
+  return [...new Set((Array.isArray(v) ? v : v ? [v] : []).map(String).filter(Boolean))];
+}
+
 /** True when the root's current skill/difficultyTarget no longer match its generated children: the job publishes exactly target x multiplier per level and tags each child with its skill. */
 export function isGenerationStale(
   root: INode | undefined, treeCache: Record<string, Record<string, unknown>>, primaryCategory?: string, skillField = 'skill',
@@ -92,8 +98,8 @@ export function isGenerationStale(
     const count = children.filter((c) => String(field(c, 'difficultyLevel') ?? '').toUpperCase() === level).length;
     if (count !== (target[key] ?? 0) * DYNAMIC_ASSESS_POOL_MULTIPLIER) return true;
   }
-  const saved = new Set((Array.isArray(meta.skill) ? meta.skill : []).map(String));
-  // Pool questions carry the skill in the framework's deepest category (e.g. "topic"), which the form shows as Skill.
+  const saved = new Set(selectedSkills(meta, skillField));
+  // The root's selection and the pool questions' tags both live in the framework's deepest category (e.g. "topic").
   const skillsOf = (c: INode) => { const v = field(c, skillField); return (Array.isArray(v) ? v : v ? [v] : []).map(String); };
   // Children with no value in that field (e.g. the framework hasn't loaded, so the field is unknown) leave only the target to check.
   if (!children.some((c) => skillsOf(c).length)) return false;
@@ -119,7 +125,7 @@ export function needsGeneration(
   const meta = { ...(root.metadata ?? {}), ...(treeCache[root.identifier] ?? {}) } as Record<string, unknown>;
   if ((primaryCategory ?? root.primaryCategory ?? meta.primaryCategory) !== 'Dynamic QuestionSet') return false;
   const target = toDifficultyTarget(meta.difficultyTarget);
-  const hasInputs = Array.isArray(meta.skill) && meta.skill.length > 0 && (target.E ?? 0) + (target.M ?? 0) + (target.D ?? 0) > 0;
+  const hasInputs = selectedSkills(meta, skillField).length > 0 && (target.E ?? 0) + (target.M ?? 0) + (target.D ?? 0) > 0;
   if (!hasInputs) return false;
   return !(root.children ?? []).some((c) => c.isQuestion) || isGenerationStale(root, treeCache, primaryCategory, skillField);
 }

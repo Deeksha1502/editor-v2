@@ -9,10 +9,12 @@ import { getContentId, isDynamicAssessQuestionSet, resolvePrimaryCategory } from
 import { label, resolveUiLanguage } from '../utils/labels';
 import { apiErrorMessage, notifyError, notifySuccess } from '../utils/notify';
 import { toDifficultyTarget } from '../components/SparkMetaForm/SparkMetaForm';
-import { checkPool, generateAndWait, shouldPauseAfterPending, skillPoolErrorMessage, startEditorSession } from './useRefreshQuestionSetBody';
-import { getFramework } from '../api/framework';
-import { queryClient } from '../queryClient';
+import {
+  checkPool, deepestCategoryCode, fetchFramework, generateAndWait, shouldPauseAfterPending, skillPoolErrorMessage, startEditorSession,
+} from './useRefreshQuestionSetBody';
+import { selectedSkills } from '../utils/dynamicAssessDraw';
 import type { INode } from '../types/editor';
+import type { IFramework } from '../types/framework';
 
 interface UseEditorInitOptions {
   config: IEditorConfig;
@@ -34,19 +36,23 @@ export function useEditorInit({ config, onError }: UseEditorInitOptions) {
 
     // Runs after the editor is ready, under the Generate loader, so nothing can be saved over the job's write.
     async function generateOnOpen(contentId: string, baselineRoot: INode | undefined) {
+      const meta = (baselineRoot?.metadata ?? {}) as Record<string, unknown>;
+      // The selection lives in the framework's deepest category field; it's read before the loader shows, so a set without one opens as before.
+      let framework: IFramework | undefined;
+      try {
+        framework = await fetchFramework(String(meta.framework ?? ''));
+      } catch {
+        return; // the selection can't be read, so generation is left to Save & Generate
+      }
+      const skills = selectedSkills(meta, deepestCategoryCode(framework));
+      if (cancelled || !skills.length) return;
+
       const { setButtonLoader } = useEditorStore.getState();
       setButtonLoader('refreshBody', true);
       try {
         // Same pool check as Save & Generate, so settings the job can't fill don't block every open for the whole poll.
-        const meta = (baselineRoot?.metadata ?? {}) as Record<string, unknown>;
-        const frameworkId = String(meta.framework ?? '');
         let problems: string[];
         try {
-          // Same query key as useFramework, so the form reuses this fetch.
-          const framework = frameworkId
-            ? await queryClient.fetchQuery({ queryKey: ['framework', frameworkId], queryFn: () => getFramework(frameworkId), staleTime: 10 * 60 * 1000 })
-            : undefined;
-          const skills = Array.isArray(meta.skill) ? meta.skill.map(String) : [];
           problems = await checkPool(skills, toDifficultyTarget(meta.difficultyTarget), framework, config.context.channel);
         } catch (err) {
           if (!cancelled) notifyError(label('messages.error.dynamicAssessPoolCheck', 'Could not verify question availability. Please try again.'), err);
@@ -101,14 +107,13 @@ export function useEditorInit({ config, onError }: UseEditorInitOptions) {
         if (contentId) {
           const { rootNode } = await readHierarchy(contentId);
 
-          // Auto-generate an empty set on open, only for its author and only with saved inputs the job can use.
+          // Auto-generate an empty set on open, only for its author and only with a saved target; generateOnOpen checks the saved skills once the framework names their field.
           const rootMeta = (rootNode?.metadata ?? {}) as Record<string, unknown>;
           const target = toDifficultyTarget(rootMeta.difficultyTarget);
           autoGenerate =
             config.config.mode === 'edit' &&
             isDynamicAssessQuestionSet(resolvePrimaryCategory(config.config.primaryCategory, rootNode)) &&
             (rootNode?.children?.length ?? 0) === 0 &&
-            Array.isArray(rootMeta.skill) && rootMeta.skill.length > 0 &&
             (target.E ?? 0) + (target.M ?? 0) + (target.D ?? 0) > 0;
           baselineRoot = rootNode;
 

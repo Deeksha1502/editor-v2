@@ -12,7 +12,7 @@ import { planPool } from '../utils/poolPlan';
 import { useValidateRequiredFields } from './useValidateAndSave';
 import { highestIndexCategoryCode } from './useFramework';
 import { getFramework } from '../api/framework';
-import { DYNAMIC_ASSESS_MIN_CRITERIA, DYNAMIC_ASSESS_POOL_MULTIPLIER, isGenerationComplete } from '../utils/dynamicAssessDraw';
+import { DYNAMIC_ASSESS_MIN_CRITERIA, DYNAMIC_ASSESS_POOL_MULTIPLIER, isGenerationComplete, selectedSkills } from '../utils/dynamicAssessDraw';
 import { queryClient } from '../queryClient';
 import type { INode } from '../types/editor';
 import type { IFramework } from '../types/framework';
@@ -107,6 +107,13 @@ export function shouldPauseAfterPending(editorRoot: INode | undefined): boolean 
   return (editorRoot?.children?.length ?? 0) > 0;
 }
 
+/** The framework through the shared query cache (same key and staleTime as useFramework), fetched if not loaded yet; undefined without an id. */
+export async function fetchFramework(frameworkId: string): Promise<IFramework | undefined> {
+  return frameworkId
+    ? queryClient.fetchQuery({ queryKey: ['framework', frameworkId], queryFn: () => getFramework(frameworkId), staleTime: 10 * 60 * 1000 })
+    : undefined;
+}
+
 /** The job's allocation check plus knowlg-service's per-skill floor, against live counts; throws if the searches fail. */
 export async function checkPool(skills: string[], target: DifficultyTarget, framework: IFramework | undefined, channel?: string): Promise<string[]> {
   const categoryField = deepestCategoryCode(framework);
@@ -197,18 +204,21 @@ export function useRefreshQuestionSetBody() {
       const { treeData, treeCache } = useTreeStore.getState();
       const rootId = treeData[0]?.identifier;
       const meta = { ...(treeData[0]?.metadata ?? {}), ...(rootId ? treeCache[rootId] ?? {} : {}) } as Record<string, unknown>;
-      const skills = Array.isArray(meta.skill) ? meta.skill.map(String) : [];
+      // The selection lives in the framework's deepest category field, so the framework is needed before the inputs can be read.
+      let framework: IFramework | undefined;
+      try {
+        framework = await fetchFramework(String(meta.framework ?? ''));
+      } catch (err) {
+        if (!isCancelled()) notifyError(label('messages.error.dynamicAssessPoolCheck', 'Could not verify question availability. Please try again.'), err);
+        return false;
+      }
+      const skills = selectedSkills(meta, deepestCategoryCode(framework));
       const target = toDifficultyTarget(meta.difficultyTarget);
       if (!skills.length || (target.E ?? 0) + (target.M ?? 0) + (target.D ?? 0) <= 0) {
         return await blocked(label('messages.error.dynamicAssessInputs', 'Set Skill and Difficulty Target before generating questions.'));
       }
-      const frameworkId = String(meta.framework ?? '');
       let problems: string[];
       try {
-        // Fetched, not just read from cache, so the pool check never falls back to 'skill' because the framework hadn't loaded yet.
-        const framework = frameworkId
-          ? await queryClient.fetchQuery({ queryKey: ['framework', frameworkId], queryFn: () => getFramework(frameworkId), staleTime: 10 * 60 * 1000 })
-          : undefined;
         problems = await checkPool(skills, target, framework, config?.context?.channel);
       } catch (err) {
         if (!isCancelled()) notifyError(label('messages.error.dynamicAssessPoolCheck', 'Could not verify question availability. Please try again.'), err);

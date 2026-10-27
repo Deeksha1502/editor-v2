@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pickForLearner, withDynamicDraw, isGenerationStale, isGenerationComplete, needsGeneration } from './dynamicAssessDraw';
+import { pickForLearner, withDynamicDraw, isGenerationStale, isGenerationComplete, needsGeneration, selectedSkills } from './dynamicAssessDraw';
 import type { INode } from '../types/editor';
 
 const q = (id: string, level: string): INode => ({ id, identifier: id, name: id, isQuestion: true, metadata: { difficultyLevel: level } });
@@ -105,10 +105,10 @@ describe('isGenerationStale', () => {
     expect(isGenerationStale(qs([{ id: 's', identifier: 's', name: 's', isFolder: true }]), {})).toBe(true);
   });
 
-  it('compares skills in the framework\'s deepest category, e.g. topic (positive)', () => {
+  it('reads the selection and the questions\' skills from the framework\'s deepest category, e.g. topic (positive)', () => {
     const topicPool = generated().map((c) => ({ ...c, metadata: { difficultyLevel: c.metadata?.difficultyLevel, topic: ['Algebra'] } }));
-    expect(isGenerationStale(qs(topicPool, { skill: ['Algebra'] }), {}, undefined, 'topic')).toBe(false);
-    expect(isGenerationStale(qs(topicPool, { skill: ['Geometry'] }), {}, undefined, 'topic')).toBe(true);
+    expect(isGenerationStale(qs(topicPool, { topic: ['Algebra'] }), {}, undefined, 'topic')).toBe(false);
+    expect(isGenerationStale(qs(topicPool, { topic: ['Geometry'] }), {}, undefined, 'topic')).toBe(true);
   });
 
   it('ignores empty sets and non-Dynamic sets (negative)', () => {
@@ -141,5 +141,33 @@ describe('needsGeneration (Save also generates only when needed)', () => {
     expect(needsGeneration(set([], { skill: [] }), {})).toBe(false);
     expect(needsGeneration(set([], { difficultyTarget: { E: 0, M: 0, D: 0 } }), {})).toBe(false);
     expect(needsGeneration({ ...set([]), primaryCategory: 'Practice Question Set' }, {}, 'Practice Question Set')).toBe(false);
+  });
+});
+
+describe('selectedSkills (the selection lives in the framework\'s deepest category field)', () => {
+  it('reads that field, deduped, whether it holds a list or one value (positive)', () => {
+    expect(selectedSkills({ topic: ['Algebra', 'Algebra', 'Geometry'], skill: ['Ignored'] }, 'topic')).toEqual(['Algebra', 'Geometry']);
+    expect(selectedSkills({ topic: 'Algebra' }, 'topic')).toEqual(['Algebra']);
+  });
+
+  it('is empty when the field is missing or blank (negative)', () => {
+    expect(selectedSkills({ skill: ['Physics'] }, 'topic')).toEqual([]);
+    expect(selectedSkills({ topic: [] }, 'topic')).toEqual([]);
+  });
+});
+
+describe('needsGeneration with a non-"skill" deepest category', () => {
+  const dq = (id: string, level: string): INode => ({ id, identifier: id, name: id, isQuestion: true, metadata: { difficultyLevel: level, topic: ['Algebra'] } } as INode);
+  const set = (children: INode[], meta: Record<string, unknown>): INode =>
+    ({ id: 'do_root', identifier: 'do_root', name: 'Set', primaryCategory: 'Dynamic QuestionSet', children, metadata: { difficultyTarget: { E: 1, M: 0, D: 0 }, ...meta } } as INode);
+
+  it('generates on the first save once topic holds the selection (positive)', () => {
+    expect(needsGeneration(set([], { topic: ['Algebra'] }), {}, undefined, 'topic')).toBe(true);
+  });
+
+  it('does not treat a stray skill value as the selection when the framework\'s category is topic (negative)', () => {
+    expect(needsGeneration(set([], { skill: ['Algebra'] }), {}, undefined, 'topic')).toBe(false);
+    const generated = ['e0', 'e1', 'e2'].map((i) => dq(i, 'EASY'));
+    expect(needsGeneration(set(generated, { topic: ['Algebra'] }), {}, undefined, 'topic')).toBe(false);
   });
 });

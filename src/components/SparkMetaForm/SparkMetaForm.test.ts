@@ -53,23 +53,36 @@ describe('skill field always binds to the active framework\'s deepest category (
   ]);
   const categoryOrder = ['subject', 'topic']; // ascending index — 'topic' is deepest
 
-  it('overrides a mismatched static sourceCategory with the deepest category code', () => {
+  it('drops the separate skill field on a Dynamic root and selects skills in the deepest category instead (positive)', () => {
     // Static sourceCategory says 'skill', but this framework's deepest category is 'topic'.
     const fields: ICategoryField[] = [
       { code: 'skill', label: 'Skill', required: true, editable: true, visible: true, sourceCategory: 'skill' },
     ];
     const adapted = adaptFieldsForFramework(fields, frameworkTerms, categoryOrder, true, true);
-    const skillField = adapted.find((f) => f.code === 'skill');
-    expect(skillField?.sourceCategory).toBe('topic');
+    expect(adapted.find((f) => f.code === 'skill')).toBeUndefined();
+    const topic = adapted.find((f) => f.code === 'topic');
+    expect(topic?.sourceCategory).toBe('topic');
+    expect(topic?.inputType).toBe('multiselect');
+    expect(topic?.required).toBe(true);
   });
 
-  it('resolves correctly even with no static sourceCategory at all', () => {
+  it('keeps the skill field on a Dynamic root when the deepest category is skill itself (positive)', () => {
+    const usfTerms = new Map<string, FrameworkTerm[]>([['domain', []], ['skill', [{ name: 'Debugging', identifier: 'debugging', code: 'debugging' }]]]);
     const fields: ICategoryField[] = [
       { code: 'skill', label: 'Skill', required: true, editable: true, visible: true },
     ];
-    const adapted = adaptFieldsForFramework(fields, frameworkTerms, categoryOrder, true, true);
-    const skillField = adapted.find((f) => f.code === 'skill');
-    expect(skillField?.sourceCategory).toBe('topic');
+    const adapted = adaptFieldsForFramework(fields, usfTerms, ['domain', 'skill'], true, true);
+    const skill = adapted.filter((f) => f.code === 'skill');
+    expect(skill).toHaveLength(1);
+    expect(skill[0].sourceCategory).toBe('skill');
+    expect(skill[0].inputType).toBe('multiselect');
+  });
+
+  it('leaves a Dynamic question-level skill field as it was (negative)', () => {
+    const fields: ICategoryField[] = [
+      { code: 'skill', label: 'Skill', required: true, editable: true, visible: true, sourceCategory: 'skill' },
+    ];
+    expect(adaptFieldsForFramework(fields, frameworkTerms, categoryOrder, false, true).find((f) => f.code === 'skill')?.sourceCategory).toBe('skill');
   });
 
   it('leaves a skill field on a non-Dynamic question set bound as before (negative)', () => {

@@ -525,8 +525,8 @@ export function adaptFieldsForFramework(
   // SECOND field for the very same category — the duplicate Board/Medium/
   // GradeLevel/Subject rows this fixes.
   const resolveCategoryCode = (field: ICategoryField): string | undefined => {
-    // skill always binds to the active framework's deepest category, matching the backend's resolveCategoryCode.
-    if (isDynamicAssess && isSkillField(field) && highestIndexCode) return highestIndexCode;
+    // Dynamic sets select skills in the framework's own deepest category field (synthesized below when the form lacks it), so a separate skill field is kept only when that category is "skill" itself.
+    if (isDynamicAssess && isRoot && isSkillField(field)) return highestIndexCode === 'skill' ? 'skill' : undefined;
     if (field.sourceCategory) return field.sourceCategory;
     if (frameworkCategoryCodes.has(field.code)) return field.code;
     const byLabel = field.label?.trim().toLowerCase();
@@ -538,7 +538,7 @@ export function adaptFieldsForFramework(
     .map((f) => {
       if (!isFrameworkDrivenField(f)) return f;
       const categoryCode = resolveCategoryCode(f)!;
-      // Stamp the resolved category onto the field so buildOptions() finds its terms; skill's static sourceCategory is never trusted.
+      // Stamp the resolved category onto the field so buildOptions() finds its terms; a Dynamic skill field's static sourceCategory is never trusted.
       const withSourceCategory = (!f.sourceCategory || (isDynamicAssess && isSkillField(f) && f.sourceCategory !== categoryCode))
         ? { ...f, sourceCategory: categoryCode }
         : f;
