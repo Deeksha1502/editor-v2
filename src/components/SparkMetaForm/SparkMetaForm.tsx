@@ -14,6 +14,7 @@ import ContentEditable from '../shared/ContentEditable';
 import { htmlToText } from '../../utils/html';
 import { useLabels } from '../../hooks/useLabels';
 import { label } from '../../utils/labels';
+import { MinQuestionsPanel } from './MinQuestionsPanel';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -1215,12 +1216,16 @@ const SparkMetaForm: React.FC<SparkMetaFormProps> = ({
                 // ── difficultyTarget — E/M/D question-count inputs ────────
                 if (isDifficultyTargetField(field)) {
                   return (
-                    <DifficultyTargetInput
-                      value={toDifficultyTarget(rhfField.value)}
-                      disabled={isDisabled}
-                      groupLabel={field.label}
-                      onCommit={(next) => { rhfField.onChange(next); onChange(field.code, serializeDifficultyTarget(next)); }}
-                    />
+                    <>
+                      <DifficultyTargetInput
+                        value={toDifficultyTarget(rhfField.value)}
+                        disabled={isDisabled}
+                        groupLabel={field.label}
+                        onCommit={(next) => { rhfField.onChange(next); onChange(field.code, serializeDifficultyTarget(next)); }}
+                      />
+                      {/* Only a Dynamic set's root has a per-skill minimum. */}
+                      {isDynamicAssess && isRoot && <MinQuestionsPanel values={values} target={toDifficultyTarget(rhfField.value)} />}
+                    </>
                   );
                 }
 

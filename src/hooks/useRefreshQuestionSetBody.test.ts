@@ -44,6 +44,23 @@ describe('skillShortfalls', () => {
   });
 });
 
+describe("pool checks with the set's own minCriteria/multiplier", () => {
+  const settings = { minCriteria: 4, multiplier: 2 };
+
+  it('needs minCriteria x skills in the target and minCriteria x multiplier per skill (positive)', () => {
+    const tooFew = poolProblems(['A', 'B'], { E: 7, M: 0, D: 0 }, { A: { E: 30, M: 0, D: 0 }, B: { E: 30, M: 0, D: 0 } }, { A: 30, B: 30 }, settings);
+    expect(tooFew[0]).toContain('at least 8');
+    expect(skillShortfalls(['A', 'B'], { A: 8, B: 7 }, settings)).toEqual(['B']);
+    expect(poolProblems(['A'], { E: 4, M: 0, D: 0 }, { A: { E: 8, M: 0, D: 0 } }, { A: 7 }, settings)[0]).toContain('at least 8');
+  });
+
+  it('passes settings the stored values allow but the defaults would reject (negative)', () => {
+    // E 4 x multiplier 2 = 8 available; the default multiplier 3 would need 12.
+    expect(poolProblems(['A'], { E: 4, M: 0, D: 0 }, { A: { E: 8, M: 0, D: 0 } }, { A: 8 }, settings)).toEqual([]);
+    expect(poolProblems(['A'], { E: 4, M: 0, D: 0 }, { A: { E: 8, M: 0, D: 0 } }, { A: 8 })).not.toEqual([]);
+  });
+});
+
 describe('skillPoolErrorMessage', () => {
   const rejection = (err: string, message: string) => Object.assign(new Error(message), { response: { data: { params: { err } } } });
 

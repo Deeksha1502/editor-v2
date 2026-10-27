@@ -12,7 +12,7 @@ import { toDifficultyTarget } from '../components/SparkMetaForm/SparkMetaForm';
 import {
   checkPool, deepestCategoryCode, fetchFramework, generateAndWait, shouldPauseAfterPending, skillPoolErrorMessage, startEditorSession,
 } from './useRefreshQuestionSetBody';
-import { selectedSkills } from '../utils/dynamicAssessDraw';
+import { dynamicAssessSettings, selectedSkills } from '../utils/dynamicAssessDraw';
 import type { INode } from '../types/editor';
 import type { IFramework } from '../types/framework';
 
@@ -53,7 +53,7 @@ export function useEditorInit({ config, onError }: UseEditorInitOptions) {
         // Same pool check as Save & Generate, so settings the job can't fill don't block every open for the whole poll.
         let problems: string[];
         try {
-          problems = await checkPool(skills, toDifficultyTarget(meta.difficultyTarget), framework, config.context.channel);
+          problems = await checkPool(skills, toDifficultyTarget(meta.difficultyTarget), framework, config.context.channel, dynamicAssessSettings(meta));
         } catch (err) {
           if (!cancelled) notifyError(label('messages.error.dynamicAssessPoolCheck', 'Could not verify question availability. Please try again.'), err);
           return;

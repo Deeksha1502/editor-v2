@@ -12,17 +12,19 @@ import { planPool } from '../utils/poolPlan';
 import { useValidateRequiredFields } from './useValidateAndSave';
 import { highestIndexCategoryCode } from './useFramework';
 import { getFramework } from '../api/framework';
-import { DYNAMIC_ASSESS_MIN_CRITERIA, DYNAMIC_ASSESS_POOL_MULTIPLIER, isGenerationComplete, selectedSkills } from '../utils/dynamicAssessDraw';
+import { dynamicAssessSettings, isGenerationComplete, selectedSkills, type DynamicAssessSettings } from '../utils/dynamicAssessDraw';
 import { queryClient } from '../queryClient';
 import type { INode } from '../types/editor';
 import type { IFramework } from '../types/framework';
 
 type Buckets = Record<string, Record<'E' | 'M' | 'D', number>>;
 
-/** Why the job couldn't generate these settings (it mirrors the job's own allocation), plus knowlg-service's per-skill floor; empty when generation can go ahead. */
-export function poolProblems(skills: string[], target: DifficultyTarget, buckets: Buckets, skillTotals: Record<string, number>): string[] {
-  const m = DYNAMIC_ASSESS_POOL_MULTIPLIER;
-  const min = DYNAMIC_ASSESS_MIN_CRITERIA;
+/** Why the job couldn't generate these settings (it mirrors the job's own allocation, with the set's own minCriteria/multiplier), plus knowlg-service's per-skill floor; empty when generation can go ahead. */
+export function poolProblems(
+  skills: string[], target: DifficultyTarget, buckets: Buckets, skillTotals: Record<string, number>, settings: DynamicAssessSettings = dynamicAssessSettings(undefined),
+): string[] {
+  const m = settings.multiplier;
+  const min = settings.minCriteria;
   const plan = planPool(skills, target, (s, l) => buckets[s]?.[l] ?? 0, min, m);
   if (plan.infeasible) {
     return [label('messages.error.dynamicAssessTooManySkills', 'With {COUNT} skills, the Difficulty Target must add up to at least {NEEDED} (each skill gets at least {MIN} questions). Raise the target or remove a skill.')
@@ -38,16 +40,16 @@ export function poolProblems(skills: string[], target: DifficultyTarget, buckets
   }
   // A skill left without its own minimum would be missing from the pool, and the settings would then never match the questions.
   if (plan.shortSkills.length) {
-    return [label('messages.error.dynamicAssessSkillLevels', 'Not enough questions at the selected difficulty levels for: {SKILLS}. Each skill needs at least 2 questions it can supply at those levels.')
-      .replace('{SKILLS}', plan.shortSkills.join(', '))];
+    return [label('messages.error.dynamicAssessSkillLevels', 'Not enough questions at the selected difficulty levels for: {SKILLS}. Each skill needs at least {MIN} questions it can supply at those levels.')
+      .replace('{SKILLS}', plan.shortSkills.join(', ')).replace('{MIN}', String(min))];
   }
-  const shortSkills = skillShortfalls(skills, skillTotals);
+  const shortSkills = skillShortfalls(skills, skillTotals, settings);
   return shortSkills.length ? [skillPoolMessage(min * m, shortSkills)] : [];
 }
 
 /** Skills below the minCriteria x multiplier Live questions knowlg-service requires before it accepts a refresh. */
-export function skillShortfalls(skills: string[], counts: Record<string, number>): string[] {
-  return skills.filter((s) => (counts[s] ?? 0) < DYNAMIC_ASSESS_MIN_CRITERIA * DYNAMIC_ASSESS_POOL_MULTIPLIER);
+export function skillShortfalls(skills: string[], counts: Record<string, number>, settings: DynamicAssessSettings = dynamicAssessSettings(undefined)): string[] {
+  return skills.filter((s) => (counts[s] ?? 0) < settings.minCriteria * settings.multiplier);
 }
 
 function skillPoolMessage(needed: number | string, skills: string[]): string {
@@ -114,14 +116,16 @@ export async function fetchFramework(frameworkId: string): Promise<IFramework | 
     : undefined;
 }
 
-/** The job's allocation check plus knowlg-service's per-skill floor, against live counts; throws if the searches fail. */
-export async function checkPool(skills: string[], target: DifficultyTarget, framework: IFramework | undefined, channel?: string): Promise<string[]> {
+/** The job's allocation check plus knowlg-service's per-skill floor, against live counts and the set's own settings; throws if the searches fail. */
+export async function checkPool(
+  skills: string[], target: DifficultyTarget, framework: IFramework | undefined, channel: string | undefined, settings: DynamicAssessSettings,
+): Promise<string[]> {
   const categoryField = deepestCategoryCode(framework);
   const [buckets, skillCounts] = await Promise.all([
     questionBucketCounts(categoryField, skills, channel),
     questionSkillCounts(categoryField, skills),
   ]);
-  return poolProblems(skills, target, buckets, skillCounts);
+  return poolProblems(skills, target, buckets, skillCounts, settings);
 }
 
 /** Child ids + lastUpdatedOn — either changing means the job's /add (and /remove) landed. */
@@ -219,7 +223,7 @@ export function useRefreshQuestionSetBody() {
       }
       let problems: string[];
       try {
-        problems = await checkPool(skills, target, framework, config?.context?.channel);
+        problems = await checkPool(skills, target, framework, config?.context?.channel, dynamicAssessSettings(meta));
       } catch (err) {
         if (!isCancelled()) notifyError(label('messages.error.dynamicAssessPoolCheck', 'Could not verify question availability. Please try again.'), err);
         return false;

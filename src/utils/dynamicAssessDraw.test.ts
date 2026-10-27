@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pickForLearner, withDynamicDraw, isGenerationStale, isGenerationComplete, needsGeneration, selectedSkills } from './dynamicAssessDraw';
+import { pickForLearner, withDynamicDraw, isGenerationStale, isGenerationComplete, needsGeneration, selectedSkills, dynamicAssessSettings } from './dynamicAssessDraw';
 import type { INode } from '../types/editor';
 
 const q = (id: string, level: string): INode => ({ id, identifier: id, name: id, isQuestion: true, metadata: { difficultyLevel: level } });
@@ -169,5 +169,42 @@ describe('needsGeneration with a non-"skill" deepest category', () => {
     expect(needsGeneration(set([], { skill: ['Algebra'] }), {}, undefined, 'topic')).toBe(false);
     const generated = ['e0', 'e1', 'e2'].map((i) => dq(i, 'EASY'));
     expect(needsGeneration(set(generated, { topic: ['Algebra'] }), {}, undefined, 'topic')).toBe(false);
+  });
+});
+
+describe("dynamicAssessSettings (the set's own minCriteria/multiplier, like the job's nodeSetting)", () => {
+  it('reads the stored values, as numbers or numeric strings (positive)', () => {
+    expect(dynamicAssessSettings({ minCriteria: 4, multiplier: '5' })).toEqual({ minCriteria: 4, multiplier: 5 });
+    expect(dynamicAssessSettings({ minCriteria: '0', multiplier: 2 })).toEqual({ minCriteria: 0, multiplier: 2 });
+  });
+
+  it('falls back to 2 and 3 when missing, blank, non-numeric or below the minimum (negative)', () => {
+    expect(dynamicAssessSettings(undefined)).toEqual({ minCriteria: 2, multiplier: 3 });
+    expect(dynamicAssessSettings({ minCriteria: '', multiplier: 'abc' })).toEqual({ minCriteria: 2, multiplier: 3 });
+    expect(dynamicAssessSettings({ minCriteria: -1, multiplier: 0 })).toEqual({ minCriteria: 2, multiplier: 3 });
+  });
+});
+
+describe("pool math uses the set's own multiplier", () => {
+  const level = (prefix: string, lvl: string, n: number) => Array.from({ length: n }, (_, i) => q(`${prefix}${i}`, lvl));
+  // Target E1 M2 D0 with multiplier 4 -> 4 Easy + 8 Medium children.
+  const four = [...level('e', 'EASY', 4), ...level('m', 'MEDIUM', 8)];
+  const withMultiplier = (children: INode[], multiplier: unknown): INode => ({ ...root(children), metadata: { difficultyTarget: { E: 1, M: 2, D: 0 }, multiplier } });
+
+  it('is complete and not stale at target x 4 when the set stores multiplier 4 (positive)', () => {
+    expect(isGenerationComplete(withMultiplier(four, 4))).toBe(true);
+    expect(isGenerationStale(withMultiplier(four, 4), {})).toBe(false);
+  });
+
+  it('treats the same children as incomplete and stale under the default multiplier (negative)', () => {
+    expect(isGenerationComplete(withMultiplier(four, undefined))).toBe(false);
+    expect(isGenerationStale(withMultiplier(four, undefined), {})).toBe(true);
+  });
+
+  it('caps each level of the draw at children / multiplier (positive)', () => {
+    // 12 Medium children hold 3 per learner at multiplier 4 but 4 at the default 3, so a target of 4 shows 3.
+    const twelve: INode = { ...root(level('m', 'MEDIUM', 12)), metadata: { difficultyTarget: { E: 0, M: 4, D: 0 }, multiplier: 4 } };
+    expect(withDynamicDraw(twelve, {}, 'u1').children).toHaveLength(3);
+    expect(withDynamicDraw({ ...twelve, metadata: { difficultyTarget: { E: 0, M: 4, D: 0 } } }, {}, 'u1').children).toHaveLength(4);
   });
 });

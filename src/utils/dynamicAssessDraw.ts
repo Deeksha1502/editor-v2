@@ -5,11 +5,25 @@ import { toDifficultyTarget } from '../components/SparkMetaForm/SparkMetaForm';
 
 const LEVELS = [['E', 'EASY'], ['M', 'MEDIUM'], ['D', 'DIFFICULT']] as const;
 
-/** Dynamic Assess: each difficulty needs requested x this many Live questions; must match the backend's dynamicassess.multiplier. */
+/** Dynamic Assess: default pool multiplier (requested x this many Live questions per difficulty) for a set without its own; matches the backend's dynamicassess.multiplier default. */
 export const DYNAMIC_ASSESS_POOL_MULTIPLIER = 3;
 
-/** Dynamic Assess: each selected skill must contribute at least this many questions; must match the backend's dynamicassess.minCriteria. */
+/** Dynamic Assess: default minimum questions per selected skill for a set without its own; matches the backend's dynamicassess.minCriteria default. */
 export const DYNAMIC_ASSESS_MIN_CRITERIA = 2;
+
+export interface DynamicAssessSettings { minCriteria: number; multiplier: number }
+
+/** The set's own minCriteria/multiplier (stored at create by knowlg-service), else the defaults for sets created before it was, or holding a value below the minimum; mirrors the job's nodeSetting. */
+export function dynamicAssessSettings(meta: Record<string, unknown> | undefined): DynamicAssessSettings {
+  const read = (v: unknown, min: number, fallback: number) => {
+    const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
+    return Number.isFinite(n) && Math.trunc(n) >= min ? Math.trunc(n) : fallback;
+  };
+  return {
+    minCriteria: read(meta?.minCriteria, 0, DYNAMIC_ASSESS_MIN_CRITERIA),
+    multiplier: read(meta?.multiplier, 1, DYNAMIC_ASSESS_POOL_MULTIPLIER),
+  };
+}
 
 function hashSeed(seed: string): number {
   let h = 0x811c9dc5;
@@ -60,9 +74,10 @@ export function visibleDynamicQuestionIds(
   if (questions.length === 0) return new Set(); // only sections/folders: never show them (or questions nested in them)
   // Fails closed: an unsaved target above what was generated (or a zero/invalid one) must never reveal the pool, so each level is capped at its generated size.
   const visible = new Set<string>();
+  const { multiplier } = dynamicAssessSettings(meta);
   for (const [key, level] of LEVELS) {
     const atLevel = questions.filter((c) => levelOf(c, treeCache) === level).map((c) => c.identifier);
-    const count = Math.min(target[key] ?? 0, Math.floor(atLevel.length / DYNAMIC_ASSESS_POOL_MULTIPLIER));
+    const count = Math.min(target[key] ?? 0, Math.floor(atLevel.length / multiplier));
     pickForLearner(atLevel, count, `${userId || 'anonymous'}:${root.identifier}:${level}`).forEach((id) => visible.add(id));
   }
   return visible;
@@ -94,9 +109,10 @@ export function isGenerationStale(
   if (children.some((c) => !c.isQuestion)) return true;
   const field = (c: INode, key: string) => c.metadata?.[key] ?? treeCache[c.identifier]?.[key];
   const target = toDifficultyTarget(meta.difficultyTarget);
+  const { multiplier } = dynamicAssessSettings(meta);
   for (const [key, level] of LEVELS) {
     const count = children.filter((c) => String(field(c, 'difficultyLevel') ?? '').toUpperCase() === level).length;
-    if (count !== (target[key] ?? 0) * DYNAMIC_ASSESS_POOL_MULTIPLIER) return true;
+    if (count !== (target[key] ?? 0) * multiplier) return true;
   }
   const saved = new Set(selectedSkills(meta, skillField));
   // The root's selection and the pool questions' tags both live in the framework's deepest category (e.g. "topic").
@@ -107,14 +123,15 @@ export function isGenerationStale(
   return covered.size !== saved.size || children.some((c) => !skillsOf(c).some((s) => saved.has(s)));
 }
 
-/** True once the job has fully written the pool for the root's saved target: exactly target x multiplier questions per level, after both its /add and /remove. */
+/** True once the job has fully written the pool for the root's saved target: exactly target x the set's multiplier questions per level, after both its /add and /remove. */
 export function isGenerationComplete(root: INode | undefined): boolean {
   if (!root) return false;
   const children = root.children ?? [];
   if (children.length === 0 || children.some((c) => !c.isQuestion)) return false;
   const target = toDifficultyTarget(root.metadata?.difficultyTarget);
+  const { multiplier } = dynamicAssessSettings(root.metadata);
   return LEVELS.every(([key, level]) =>
-    children.filter((c) => levelOf(c, {}) === level).length === (target[key] ?? 0) * DYNAMIC_ASSESS_POOL_MULTIPLIER);
+    children.filter((c) => levelOf(c, {}) === level).length === (target[key] ?? 0) * multiplier);
 }
 
 /** Save must also generate when the set has usable Skill + Difficulty Target and either no questions yet or questions built for other settings; any other save is a plain save. */
