@@ -6,7 +6,7 @@ import { toDifficultyTarget } from '../components/SparkMetaForm/SparkMetaForm';
 const LEVELS = [['E', 'EASY'], ['M', 'MEDIUM'], ['D', 'DIFFICULT']] as const;
 
 /** Dynamic Assess: default pool multiplier (requested x this many Live questions per difficulty) for a set without its own; matches the backend's dynamicassess.multiplier default. */
-export const DYNAMIC_ASSESS_POOL_MULTIPLIER = 3;
+export const DYNAMIC_ASSESS_POOL_MULTIPLIER = 2;
 
 /** Dynamic Assess: default minimum questions per selected skill for a set without its own; matches the backend's dynamicassess.minCriteria default. */
 export const DYNAMIC_ASSESS_MIN_CRITERIA = 2;

@@ -13,10 +13,10 @@ describe('poolProblems (mirrors the job, so whatever passes can be generated)', 
     expect(poolProblems(['Physics'], { E: 2, M: 2, D: 2 }, { Physics: ten }, { Physics: 30 })).toEqual([]);
   });
 
-  it('reports a level the job cannot fill, counting each skill as floor(count / 3) (positive)', () => {
-    // 4 + 5 Easy = 9 overall, but only 1 + 1 learners' worth can be drawn.
-    const out = poolProblems(['A', 'B'], { E: 4, M: 0, D: 0 }, { A: { E: 4, M: 0, D: 0 }, B: { E: 5, M: 0, D: 0 } }, { A: 6, B: 6 });
-    expect(out[0]).toContain('Easy: requested 4 needs 12, available 6');
+  it('reports a level the job cannot fill, counting each skill as floor(count / 2) (positive)', () => {
+    // 3 + 4 Easy = 7 overall, but only 1 + 2 learners' worth can be drawn.
+    const out = poolProblems(['A', 'B'], { E: 4, M: 0, D: 0 }, { A: { E: 3, M: 0, D: 0 }, B: { E: 4, M: 0, D: 0 } }, { A: 6, B: 6 });
+    expect(out[0]).toContain('Easy: requested 4 needs 8, available 6');
   });
 
   it('reports too many skills for the target total (positive)', () => {
@@ -28,18 +28,18 @@ describe('poolProblems (mirrors the job, so whatever passes can be generated)', 
     expect(out[0]).toContain('B');
   });
 
-  it('still applies the server per-skill floor of 6 (positive)', () => {
-    expect(poolProblems(['A'], { E: 2, M: 0, D: 0 }, { A: { E: 6, M: 0, D: 0 } }, { A: 5 })[0]).toContain('at least 6');
+  it('still applies the server per-skill floor of 4 (positive)', () => {
+    expect(poolProblems(['A'], { E: 2, M: 0, D: 0 }, { A: { E: 6, M: 0, D: 0 } }, { A: 3 })[0]).toContain('at least 4');
   });
 });
 
 describe('skillShortfalls', () => {
-  it('lists each skill below minCriteria x multiplier (6) Live questions (positive)', () => {
-    expect(skillShortfalls(['Physics', 'Azure'], { Physics: 30, Azure: 5 })).toEqual(['Azure']);
+  it('lists each skill below minCriteria x multiplier (4) Live questions (positive)', () => {
+    expect(skillShortfalls(['Physics', 'Azure'], { Physics: 30, Azure: 3 })).toEqual(['Azure']);
   });
 
-  it('is empty when every skill has at least 6, and treats a missing count as 0 (negative)', () => {
-    expect(skillShortfalls(['Physics'], { Physics: 6 })).toEqual([]);
+  it('is empty when every skill has at least 4, and treats a missing count as 0 (negative)', () => {
+    expect(skillShortfalls(['Physics'], { Physics: 4 })).toEqual([]);
     expect(skillShortfalls(['Unknown'], {})).toEqual(['Unknown']);
   });
 });
@@ -55,9 +55,10 @@ describe("pool checks with the set's own minCriteria/multiplier", () => {
   });
 
   it('passes settings the stored values allow but the defaults would reject (negative)', () => {
-    // E 4 x multiplier 2 = 8 available; the default multiplier 3 would need 12.
-    expect(poolProblems(['A'], { E: 4, M: 0, D: 0 }, { A: { E: 8, M: 0, D: 0 } }, { A: 8 }, settings)).toEqual([]);
-    expect(poolProblems(['A'], { E: 4, M: 0, D: 0 }, { A: { E: 8, M: 0, D: 0 } }, { A: 8 })).not.toEqual([]);
+    // E 4 x a stored multiplier 1 = 4 available; the default multiplier 2 would need 8.
+    const single = { minCriteria: 2, multiplier: 1 };
+    expect(poolProblems(['A'], { E: 4, M: 0, D: 0 }, { A: { E: 4, M: 0, D: 0 } }, { A: 4 }, single)).toEqual([]);
+    expect(poolProblems(['A'], { E: 4, M: 0, D: 0 }, { A: { E: 4, M: 0, D: 0 } }, { A: 4 })).not.toEqual([]);
   });
 });
 
@@ -90,7 +91,7 @@ describe('deepestCategoryCode', () => {
   });
 });
 
-// Target E1: the job's finished write is exactly 3 Easy children.
+// Target E1: the job's finished write is exactly 2 Easy children (target x the default multiplier 2).
 function root(childIds: string[], lastUpdatedOn = 't0'): { rootNode: INode } {
   return {
     rootNode: {
@@ -111,19 +112,19 @@ describe('saveThenGenerate (Dynamic Assess Generate Questions)', () => {
     const read = vi.fn()
       .mockResolvedValueOnce(root([]))            // baseline after save
       .mockResolvedValueOnce(root([]))            // job not done yet
-      .mockResolvedValueOnce(root(['q1', 'q2', 'q3'])); // job wrote children
+      .mockResolvedValueOnce(root(['q1', 'q2'])); // job wrote children
 
     const out = await saveThenGenerate({ contentId: 'do_root', save, refresh, read, sleep: noSleep });
 
     expect(calls).toEqual(['save', 'refresh']);
     expect(out.result).toBe('generated');
-    expect(out.rootNode?.children?.map((c) => c.identifier)).toEqual(['q1', 'q2', 'q3']);
+    expect(out.rootNode?.children?.map((c) => c.identifier)).toEqual(['q1', 'q2']);
   });
 
   it('treats a lastUpdatedOn change as done even if the reselection kept the same ids (positive)', async () => {
     const read = vi.fn()
-      .mockResolvedValueOnce(root(['q1', 'q2', 'q3'], 't1'))
-      .mockResolvedValueOnce(root(['q1', 'q2', 'q3'], 't2'));
+      .mockResolvedValueOnce(root(['q1', 'q2'], 't1'))
+      .mockResolvedValueOnce(root(['q1', 'q2'], 't2'));
     const out = await saveThenGenerate({
       contentId: 'do_root', save: async () => 'saved', refresh: async () => {}, read, sleep: noSleep,
     });
@@ -173,19 +174,19 @@ describe('saveThenGenerate (Dynamic Assess Generate Questions)', () => {
 
   it('keeps polling past the job /add until its /remove lands, so stale children are never kept (positive)', async () => {
     const read = vi.fn()
-      .mockResolvedValueOnce(root(['o1', 'o2', 'o3']))                    // baseline: old pool
-      .mockResolvedValueOnce(root(['o1', 'o2', 'o3', 'n1', 'n2', 'n3']))  // after /add, before /remove
-      .mockResolvedValueOnce(root(['n1', 'n2', 'n3'], 't1'));             // after /remove
+      .mockResolvedValueOnce(root(['o1', 'o2']))              // baseline: old pool
+      .mockResolvedValueOnce(root(['o1', 'o2', 'n1', 'n2']))  // after /add, before /remove
+      .mockResolvedValueOnce(root(['n1', 'n2'], 't1'));       // after /remove
     const out = await saveThenGenerate({ contentId: 'do_root', save: async () => 'saved', refresh: async () => {}, read, sleep: noSleep });
     expect(out.result).toBe('generated');
-    expect(out.rootNode?.children?.map((c) => c.identifier)).toEqual(['n1', 'n2', 'n3']);
+    expect(out.rootNode?.children?.map((c) => c.identifier)).toEqual(['n1', 'n2']);
   });
 });
 
 describe('generateAndWait (auto-generate on open)', () => {
   it('generates without saving and waits for the full write (positive)', async () => {
     const refresh = vi.fn(async () => {});
-    const read = vi.fn().mockResolvedValueOnce(root([])).mockResolvedValueOnce(root(['q1', 'q2', 'q3'], 't1'));
+    const read = vi.fn().mockResolvedValueOnce(root([])).mockResolvedValueOnce(root(['q1', 'q2'], 't1'));
     const out = await generateAndWait({ contentId: 'do_root', refresh, read, sleep: noSleep }, root([]).rootNode);
     expect(refresh).toHaveBeenCalledWith('do_root');
     expect(out.result).toBe('generated');
@@ -196,7 +197,7 @@ describe('generateAndWait robustness', () => {
   it('retries after a failed read instead of giving up mid-write (positive)', async () => {
     const read = vi.fn()
       .mockRejectedValueOnce(new Error('Network Error'))
-      .mockResolvedValueOnce(root(['q1', 'q2', 'q3'], 't1'));
+      .mockResolvedValueOnce(root(['q1', 'q2'], 't1'));
     const out = await generateAndWait({ contentId: 'do_root', refresh: async () => {}, read, sleep: noSleep }, root([]).rootNode);
     expect(out.result).toBe('generated');
     expect(read).toHaveBeenCalledTimes(2);

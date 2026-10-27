@@ -31,7 +31,7 @@ describe('Dynamic Assess labels', () => {
 
   it('localise the pool shortfall message with every placeholder filled (positive)', () => {
     setUiLanguage('fr');
-    expect(poolProblems(['A'], { E: 2, M: 0, D: 0 }, { A: { E: 2, M: 0, D: 0 } }, { A: 6 })[0])
-      .toContain('Facile : 2 demandées, 6 nécessaires, 0 disponibles');
+    expect(poolProblems(['A'], { E: 2, M: 0, D: 0 }, { A: { E: 1, M: 0, D: 0 } }, { A: 6 })[0])
+      .toContain('Facile : 2 demandées, 4 nécessaires, 0 disponibles');
   });
 });

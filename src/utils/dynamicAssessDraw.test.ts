@@ -6,7 +6,8 @@ const q = (id: string, level: string): INode => ({ id, identifier: id, name: id,
 const root = (children: INode[], target: unknown = { E: 1, M: 2, D: 0 }): INode => ({
   id: 'do_qs', identifier: 'do_qs', name: 'QS', primaryCategory: 'Dynamic QuestionSet', children, metadata: { difficultyTarget: target },
 });
-const pool = [...['e0', 'e1', 'e2'].map((i) => q(i, 'EASY')), ...['m0', 'm1', 'm2', 'm3', 'm4', 'm5'].map((i) => q(i, 'MEDIUM'))];
+// Target E1 M2 D0 generated at the default multiplier 2 -> 2 Easy + 4 Medium children.
+const pool = [...['e0', 'e1'].map((i) => q(i, 'EASY')), ...['m0', 'm1', 'm2', 'm3'].map((i) => q(i, 'MEDIUM'))];
 
 describe('withDynamicDraw', () => {
   it("shows only the user's target-sized draw per level, the same every time (positive)", () => {
@@ -18,14 +19,14 @@ describe('withDynamicDraw', () => {
 
   it('draws the same set the portal player gives this user (shared seed format)', () => {
     const shownMedium = (withDynamicDraw(root(pool), {}, 'u1').children ?? []).filter((c) => c.metadata?.difficultyLevel === 'MEDIUM').map((c) => c.identifier).sort();
-    expect(shownMedium).toEqual(pickForLearner(['m0', 'm1', 'm2', 'm3', 'm4', 'm5'], 2, 'u1:do_qs:MEDIUM').sort());
+    expect(shownMedium).toEqual(pickForLearner(['m0', 'm1', 'm2', 'm3'], 2, 'u1:do_qs:MEDIUM').sort());
   });
 
   it('prefers treeCache edits for the target and leaves the stored children untouched', () => {
     const r = root(pool);
     const shown = withDynamicDraw(r, { do_qs: { difficultyTarget: '{"E":0,"M":1,"D":0}' } }, 'u1').children ?? [];
     expect(shown).toHaveLength(1);
-    expect(r.children).toHaveLength(9);
+    expect(r.children).toHaveLength(6);
   });
 
   it('leaves non-Dynamic sets unchanged (negative)', () => {
@@ -39,7 +40,7 @@ describe('withDynamicDraw', () => {
   });
 
   it('caps each level at its generated size when the target is raised without regenerating (positive)', () => {
-    // 3 Easy + 6 Medium were generated for E1 M2, so an unsaved E9 M9 still shows only 1 + 2.
+    // 2 Easy + 4 Medium were generated for E1 M2, so an unsaved E9 M9 still shows only 1 + 2.
     const shown = withDynamicDraw(root(pool), { do_qs: { difficultyTarget: { E: 9, M: 9, D: 0 } } }, 'u1').children ?? [];
     expect(shown.filter((c) => c.metadata?.difficultyLevel === 'EASY')).toHaveLength(1);
     expect(shown.filter((c) => c.metadata?.difficultyLevel === 'MEDIUM')).toHaveLength(2);
@@ -63,7 +64,7 @@ describe('draw golden vector (identical in generic-editor-v2 and the portal)', (
 });
 
 describe('isGenerationComplete', () => {
-  it('is complete only at exactly target x 3 per level (positive)', () => {
+  it('is complete only at exactly target x 2 per level (positive)', () => {
     expect(isGenerationComplete(root(pool))).toBe(true);
   });
 
@@ -76,8 +77,8 @@ describe('isGenerationComplete', () => {
 
 describe('isGenerationStale', () => {
   const sq = (id: string, level: string, skill: unknown = ['Physics']): INode => ({ ...q(id, level), metadata: { difficultyLevel: level, skill } });
-  // Target E1 M2 D0 generated with multiplier 3 -> 3 Easy + 6 Medium children.
-  const generated = () => [...['e0', 'e1', 'e2'].map((i) => sq(i, 'EASY')), ...['m0', 'm1', 'm2', 'm3', 'm4', 'm5'].map((i) => sq(i, 'MEDIUM'))];
+  // Target E1 M2 D0 generated with multiplier 2 -> 2 Easy + 4 Medium children.
+  const generated = () => [...['e0', 'e1'].map((i) => sq(i, 'EASY')), ...['m0', 'm1', 'm2', 'm3'].map((i) => sq(i, 'MEDIUM'))];
   const qs = (children: INode[], meta: Record<string, unknown> = {}): INode => ({
     ...root(children), metadata: { difficultyTarget: { E: 1, M: 2, D: 0 }, skill: ['Physics'], ...meta },
   });
@@ -119,7 +120,7 @@ describe('isGenerationStale', () => {
 
 describe('needsGeneration (Save also generates only when needed)', () => {
   const sq = (id: string, level: string): INode => ({ ...q(id, level), metadata: { difficultyLevel: level, skill: ['Physics'] } });
-  const generated = () => [...['e0', 'e1', 'e2'].map((i) => sq(i, 'EASY')), ...['m0', 'm1', 'm2', 'm3', 'm4', 'm5'].map((i) => sq(i, 'MEDIUM'))];
+  const generated = () => [...['e0', 'e1'].map((i) => sq(i, 'EASY')), ...['m0', 'm1', 'm2', 'm3'].map((i) => sq(i, 'MEDIUM'))];
   const set = (children: INode[], meta: Record<string, unknown> = {}): INode => ({
     ...root(children), metadata: { difficultyTarget: { E: 1, M: 2, D: 0 }, skill: ['Physics'], ...meta },
   });
@@ -167,7 +168,7 @@ describe('needsGeneration with a non-"skill" deepest category', () => {
 
   it('does not treat a stray skill value as the selection when the framework\'s category is topic (negative)', () => {
     expect(needsGeneration(set([], { skill: ['Algebra'] }), {}, undefined, 'topic')).toBe(false);
-    const generated = ['e0', 'e1', 'e2'].map((i) => dq(i, 'EASY'));
+    const generated = ['e0', 'e1'].map((i) => dq(i, 'EASY'));
     expect(needsGeneration(set(generated, { topic: ['Algebra'] }), {}, undefined, 'topic')).toBe(false);
   });
 });
@@ -178,10 +179,10 @@ describe("dynamicAssessSettings (the set's own minCriteria/multiplier, like the 
     expect(dynamicAssessSettings({ minCriteria: '0', multiplier: 2 })).toEqual({ minCriteria: 0, multiplier: 2 });
   });
 
-  it('falls back to 2 and 3 when missing, blank, non-numeric or below the minimum (negative)', () => {
-    expect(dynamicAssessSettings(undefined)).toEqual({ minCriteria: 2, multiplier: 3 });
-    expect(dynamicAssessSettings({ minCriteria: '', multiplier: 'abc' })).toEqual({ minCriteria: 2, multiplier: 3 });
-    expect(dynamicAssessSettings({ minCriteria: -1, multiplier: 0 })).toEqual({ minCriteria: 2, multiplier: 3 });
+  it('falls back to the defaults (2 and 2) when missing, blank, non-numeric or below the minimum (negative)', () => {
+    expect(dynamicAssessSettings(undefined)).toEqual({ minCriteria: 2, multiplier: 2 });
+    expect(dynamicAssessSettings({ minCriteria: '', multiplier: 'abc' })).toEqual({ minCriteria: 2, multiplier: 2 });
+    expect(dynamicAssessSettings({ minCriteria: -1, multiplier: 0 })).toEqual({ minCriteria: 2, multiplier: 2 });
   });
 });
 
@@ -202,7 +203,7 @@ describe("pool math uses the set's own multiplier", () => {
   });
 
   it('caps each level of the draw at children / multiplier (positive)', () => {
-    // 12 Medium children hold 3 per learner at multiplier 4 but 4 at the default 3, so a target of 4 shows 3.
+    // 12 Medium children hold 3 per learner at multiplier 4 but 6 at the default 2, so a target of 4 shows 3 vs 4.
     const twelve: INode = { ...root(level('m', 'MEDIUM', 12)), metadata: { difficultyTarget: { E: 0, M: 4, D: 0 }, multiplier: 4 } };
     expect(withDynamicDraw(twelve, {}, 'u1').children).toHaveLength(3);
     expect(withDynamicDraw({ ...twelve, metadata: { difficultyTarget: { E: 0, M: 4, D: 0 } } }, {}, 'u1').children).toHaveLength(4);
