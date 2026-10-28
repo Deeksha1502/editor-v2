@@ -26,10 +26,7 @@ export function poolProblems(
   const m = settings.multiplier;
   const min = settings.minCriteria;
   const plan = planPool(skills, target, (s, l) => buckets[s]?.[l] ?? 0, min, m);
-  if (plan.infeasible) {
-    return [label('messages.error.dynamicAssessTooManySkills', 'With {COUNT} skills, the Difficulty Target must add up to at least {NEEDED} (each skill gets at least {MIN} questions). Raise the target or remove a skill.')
-      .replace('{COUNT}', String(skills.length)).replace('{NEEDED}', String(skills.length * min)).replace('{MIN}', String(min))];
-  }
+  if (plan.infeasible) return [tooManySkillsMessage(skills.length, min)];
   if (plan.uncovered.length) {
     const name = { E: label('ui.difficultyEasy', 'Easy'), M: label('ui.difficultyMedium', 'Medium'), D: label('ui.difficultyDifficult', 'Difficult') };
     const template = label('messages.error.dynamicAssessShortfall', '{LEVEL}: requested {REQUESTED} needs {NEEDED}, available {AVAILABLE}');
@@ -45,6 +42,17 @@ export function poolProblems(
   }
   const shortSkills = skillShortfalls(skills, skillTotals, settings);
   return shortSkills.length ? [skillPoolMessage(min * m, shortSkills)] : [];
+}
+
+function tooManySkillsMessage(count: number, min: number): string {
+  return label('messages.error.dynamicAssessTooManySkills', 'With {COUNT} skills, the Difficulty Target must add up to at least {NEEDED} (each skill gets at least {MIN} questions). Raise the target or remove a skill.')
+    .replace('{COUNT}', String(count)).replace('{NEEDED}', String(count * min)).replace('{MIN}', String(min));
+}
+
+/** The minimum-questions panel's rule (each selected skill gets at least minCriteria), checked without a search; the message when the target is below it, else null. */
+export function belowSkillMinimum(skillCount: number, target: DifficultyTarget, settings: DynamicAssessSettings): string | null {
+  const total = (target.E ?? 0) + (target.M ?? 0) + (target.D ?? 0);
+  return skillCount * settings.minCriteria > total ? tooManySkillsMessage(skillCount, settings.minCriteria) : null;
 }
 
 /** Skills below the minCriteria x multiplier Live questions knowlg-service requires before it accepts a refresh. */
@@ -221,9 +229,16 @@ export function useRefreshQuestionSetBody() {
       if (!skills.length || (target.E ?? 0) + (target.M ?? 0) + (target.D ?? 0) <= 0) {
         return await blocked(label('messages.error.dynamicAssessInputs', 'Set Skill and Difficulty Target before generating questions.'));
       }
+      const settings = dynamicAssessSettings(meta);
+      // A target below the panel's minimum is rejected without saving, unlike a pool shortfall, so the set never keeps settings that can't be generated.
+      const tooLow = belowSkillMinimum(skills.length, target, settings);
+      if (tooLow) {
+        notifyError(tooLow);
+        return false;
+      }
       let problems: string[];
       try {
-        problems = await checkPool(skills, target, framework, config?.context?.channel, dynamicAssessSettings(meta));
+        problems = await checkPool(skills, target, framework, config?.context?.channel, settings);
       } catch (err) {
         if (!isCancelled()) notifyError(label('messages.error.dynamicAssessPoolCheck', 'Could not verify question availability. Please try again.'), err);
         return false;

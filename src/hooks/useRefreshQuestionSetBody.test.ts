@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   saveThenGenerate, generateAndWait, poolProblems, deepestCategoryCode, skillShortfalls, skillPoolErrorMessage,
-  startEditorSession, sessionCancelledCheck, shouldPauseAfterPending,
+  startEditorSession, sessionCancelledCheck, shouldPauseAfterPending, belowSkillMinimum,
 } from './useRefreshQuestionSetBody';
 import type { INode } from '../types/editor';
 import type { IFramework } from '../types/framework';
@@ -30,6 +30,18 @@ describe('poolProblems (mirrors the job, so whatever passes can be generated)', 
 
   it('still applies the server per-skill floor of 4 (positive)', () => {
     expect(poolProblems(['A'], { E: 2, M: 0, D: 0 }, { A: { E: 6, M: 0, D: 0 } }, { A: 3 })[0]).toContain('at least 4');
+  });
+});
+
+describe('belowSkillMinimum (checked before Save & Generate saves anything)', () => {
+  it('rejects a total below minCriteria x skills, using the set\'s own minCriteria (positive)', () => {
+    expect(belowSkillMinimum(1, { E: 1, M: 0, D: 0 }, { minCriteria: 2, multiplier: 2 })).toContain('at least 2');
+    expect(belowSkillMinimum(2, { E: 2, M: 2, D: 1 }, { minCriteria: 3, multiplier: 2 })).toContain('at least 6');
+  });
+
+  it('accepts a total at or above the minimum (negative)', () => {
+    expect(belowSkillMinimum(1, { E: 1, M: 1, D: 0 }, { minCriteria: 2, multiplier: 2 })).toBeNull();
+    expect(belowSkillMinimum(2, { E: 2, M: 2, D: 0 }, { minCriteria: 2, multiplier: 2 })).toBeNull();
   });
 });
 
