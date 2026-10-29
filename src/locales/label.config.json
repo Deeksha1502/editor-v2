@@ -498,6 +498,13 @@
     "saveAndGenerate": "Save & Generate",
     "saveAndGenerateHint": "Saves, then picks questions from the pool for the current Skill and Difficulty Target",
     "regenerateQuestions": "Regenerate",
-    "regenerateQuestionsHint": "Pick a new random set of questions for the same Skill and Difficulty Target"
+    "regenerateQuestionsHint": "Pick a new random set of questions for the same Skill and Difficulty Target",
+    "difficulty": "Difficulty",
+    "selectDifficulty": "Select difficulty",
+    "dynamicAssessExampleShow": "See an example",
+    "dynamicAssessExampleHide": "Hide",
+    "dynamicAssessExampleIntro": "Example: you pick 2 skills and ask for {N} Easy, {N} Medium and {N} Difficult.",
+    "dynamicAssessExampleTotal": "Each learner gets {TOTAL} questions.",
+    "dynamicAssessExampleEach": "Minimum {MIN} questions will come from each skill."
   }
 }

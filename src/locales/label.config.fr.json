@@ -480,7 +480,14 @@
     "saveAndGenerate": "Enregistrer et générer",
     "saveAndGenerateHint": "Enregistre, puis sélectionne des questions du pool pour la compétence et l’objectif de difficulté actuels",
     "regenerateQuestions": "Régénérer",
-    "regenerateQuestionsHint": "Choisir un nouvel ensemble aléatoire de questions pour la même compétence et le même objectif de difficulté"
+    "regenerateQuestionsHint": "Choisir un nouvel ensemble aléatoire de questions pour la même compétence et le même objectif de difficulté",
+    "difficulty": "Difficulté",
+    "selectDifficulty": "Choisir la difficulté",
+    "dynamicAssessExampleShow": "Voir un exemple",
+    "dynamicAssessExampleHide": "Masquer",
+    "dynamicAssessExampleIntro": "Exemple : vous choisissez 2 compétences et demandez {N} faciles, {N} moyennes et {N} difficiles.",
+    "dynamicAssessExampleTotal": "Chaque apprenant reçoit {TOTAL} questions.",
+    "dynamicAssessExampleEach": "Au moins {MIN} questions viendront de chaque compétence."
   },
   "categoryLabels": {
     "Multiselect Multiple Choice Question": "Question à choix multiple",

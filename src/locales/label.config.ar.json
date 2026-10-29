@@ -489,6 +489,13 @@
     "saveAndGenerate": "حفظ وإنشاء",
     "saveAndGenerateHint": "يحفظ، ثم يختار أسئلة من المجموعة للمهارة وهدف الصعوبة الحاليين",
     "regenerateQuestions": "إعادة الإنشاء",
-    "regenerateQuestionsHint": "اختر مجموعة عشوائية جديدة من الأسئلة لنفس المهارة وهدف الصعوبة"
+    "regenerateQuestionsHint": "اختر مجموعة عشوائية جديدة من الأسئلة لنفس المهارة وهدف الصعوبة",
+    "difficulty": "الصعوبة",
+    "selectDifficulty": "اختر مستوى الصعوبة",
+    "dynamicAssessExampleShow": "عرض مثال",
+    "dynamicAssessExampleHide": "إخفاء",
+    "dynamicAssessExampleIntro": "مثال: تختار مهارتين وتطلب {N} سهلة و{N} متوسطة و{N} صعبة.",
+    "dynamicAssessExampleTotal": "يحصل كل متعلم على {TOTAL} أسئلة.",
+    "dynamicAssessExampleEach": "سيأتي {MIN} أسئلة على الأقل من كل مهارة."
   }
 }

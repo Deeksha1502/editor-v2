@@ -2,13 +2,16 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, it, expect, vi } from 'vitest';
-import { MinQuestionsPanel } from './MinQuestionsPanel';
+import { MinQuestionsPanel, exampleLines } from './MinQuestionsPanel';
 import SparkMetaForm from './SparkMetaForm';
 import type { ICategoryField } from '../../api/categoryDefinition';
 
 // The stores return their initial state under server rendering, so the category is switched through the hook.
 const category = vi.hoisted(() => ({ dynamic: false }));
 vi.mock('../../hooks/useIsDynamicAssess', () => ({ useIsDynamicAssess: () => category.dynamic }));
+// Pool searches, which the panel must never call.
+const counts = vi.hoisted(() => ({ bucket: vi.fn(), skill: vi.fn() }));
+vi.mock('../../api/content', () => ({ questionBucketCounts: counts.bucket, questionSkillCounts: counts.skill }));
 
 const render = (node: React.ReactElement) =>
   renderToStaticMarkup(<QueryClientProvider client={new QueryClient()}>{node}</QueryClientProvider>);
@@ -31,6 +34,45 @@ describe('MinQuestionsPanel', () => {
 
   it('renders nothing until a skill is selected (negative)', () => {
     expect(render(<MinQuestionsPanel values={{ minCriteria: 4 }} target={{ E: 1, M: 0, D: 0 }} />)).toBe('');
+  });
+
+  it('offers "See an example" but keeps the example hidden until it is opened, and never searches (negative)', () => {
+    counts.bucket.mockClear();
+    counts.skill.mockClear();
+    const html = render(<MinQuestionsPanel values={{ skill: ['Physics'] }} target={{ E: 2, M: 2, D: 2 }} />);
+    expect(html).toContain('See an example');
+    expect(html).not.toContain('dynamic-assess-example');
+    expect(html).not.toContain('Each learner gets');
+    expect(counts.bucket).not.toHaveBeenCalled();
+    expect(counts.skill).not.toHaveBeenCalled();
+  });
+});
+
+describe('exampleLines (fixed example)', () => {
+  const L = (_key: string, fallback: string) => fallback;
+
+  it("uses 2 skills and the set's minCriteria of 2 (positive)", () => {
+    expect(exampleLines(2, L)).toEqual({
+      intro: 'Example: you pick 2 skills and ask for 2 Easy, 2 Medium and 2 Difficult.',
+      points: ['Each learner gets 6 questions.', 'Minimum 2 questions will come from each skill.'],
+    });
+  });
+
+  it('follows a different minCriteria, e.g. 3 (positive)', () => {
+    expect(exampleLines(3, L)).toEqual({
+      intro: 'Example: you pick 2 skills and ask for 3 Easy, 3 Medium and 3 Difficult.',
+      points: ['Each learner gets 9 questions.', 'Minimum 3 questions will come from each skill.'],
+    });
+  });
+
+  it("doesn't depend on the creator's skills or target (negative)", () => {
+    // Only minCriteria goes in, so nothing the creator types can change it; the same call always gives the same text.
+    expect(exampleLines.length).toBe(2);
+    expect(exampleLines(2, L)).toEqual(exampleLines(2, L));
+  });
+
+  it('never asks for 0 per level, even with a minCriteria of 0 (negative)', () => {
+    expect(exampleLines(0, L).intro).toContain('1 Easy, 1 Medium and 1 Difficult');
   });
 });
 

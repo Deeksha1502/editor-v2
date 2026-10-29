@@ -370,7 +370,7 @@ export function buildLiveQuestionMeta(): { questionName: string; questionMeta: R
   const {
     activeQuestion, questionType, questionBody, options, matchPairs, sequence,
     hintText, solutionText, solutionType, solutionAsset, solutionUUID,
-    answerText, sentence, maxScore,
+    answerText, sentence, maxScore, difficultyLevel,
     isPartialScore, evalUnordered, layout, contentLang,
   } = useQuestionStore.getState();
   const { selectedNodeId, treeData } = useTreeStore.getState();
@@ -607,8 +607,8 @@ export function buildLiveQuestionMeta(): { questionName: string; questionMeta: R
       channel,
       framework,
       ...taxonomy,
-      // difficultyLevel/bloomsLevel are NOT valid Question schema
-      // properties — the old editor never sends them in nodesModified.
+      // Sent only when picked: the schema doesn't list it (accepted, schema_restrict_api is false), and the Dynamic Assess pool filters on it.
+      ...(difficultyLevel ? { difficultyLevel } : {}),
     };
 
     applyContentI18n(questionMeta, {

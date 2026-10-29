@@ -358,6 +358,9 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
     staleTime: 10 * 60 * 1000,
   });
   const channelFrameworks = frameworkListQuery.data ?? [];
+  // Optional difficulty: a standalone Live question with a skill and a difficulty can be picked by Dynamic Assess sets.
+  const difficultyLevel = useQuestionStore((st) => st.difficultyLevel);
+  const setDifficultyLevel = useQuestionStore((st) => st.setDifficultyLevel);
   const handleQuestionFrameworkChange = (value: string) => {
     handleDetailChange('framework', value);
   };
@@ -587,6 +590,23 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
                 categoryOrder={categoryOrder}
                 showAllSections
               />
+              <div className={formStyles.field}>
+                <label htmlFor="question-difficulty-picker" className={formStyles.label}>
+                  {L('ui.difficulty', 'Difficulty')}
+                </label>
+                <SingleSelectDropdown
+                  fieldId="question-difficulty-picker"
+                  value={difficultyLevel}
+                  options={[
+                    { value: 'EASY', label: L('ui.difficultyEasy', 'Easy') },
+                    { value: 'MEDIUM', label: L('ui.difficultyMedium', 'Medium') },
+                    { value: 'DIFFICULT', label: L('ui.difficultyDifficult', 'Difficult') },
+                  ]}
+                  disabled={isReadOnly}
+                  placeholder={L('ui.selectDifficulty', 'Select difficulty')}
+                  onChange={setDifficultyLevel}
+                />
+              </div>
             </div>
           )}
 

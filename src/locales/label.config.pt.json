@@ -480,7 +480,14 @@
     "saveAndGenerate": "Salvar e gerar",
     "saveAndGenerateHint": "Salva e depois escolhe questões do banco para a Habilidade e a Meta de dificuldade atuais",
     "regenerateQuestions": "Gerar novamente",
-    "regenerateQuestionsHint": "Escolher um novo conjunto aleatório de questões para a mesma Habilidade e Meta de dificuldade"
+    "regenerateQuestionsHint": "Escolher um novo conjunto aleatório de questões para a mesma Habilidade e Meta de dificuldade",
+    "difficulty": "Dificuldade",
+    "selectDifficulty": "Selecionar dificuldade",
+    "dynamicAssessExampleShow": "Ver um exemplo",
+    "dynamicAssessExampleHide": "Ocultar",
+    "dynamicAssessExampleIntro": "Exemplo: você escolhe 2 habilidades e pede {N} fáceis, {N} médias e {N} difíceis.",
+    "dynamicAssessExampleTotal": "Cada aluno recebe {TOTAL} questões.",
+    "dynamicAssessExampleEach": "No mínimo {MIN} questões virão de cada habilidade."
   },
   "categoryLabels": {
     "Multiselect Multiple Choice Question": "Pergunta de Múltipla Escolha",

@@ -128,12 +128,13 @@ export async function fetchFramework(frameworkId: string): Promise<IFramework | 
 export async function checkPool(
   skills: string[], target: DifficultyTarget, framework: IFramework | undefined, channel: string | undefined, settings: DynamicAssessSettings,
 ): Promise<string[]> {
-  const categoryField = deepestCategoryCode(framework);
-  const [buckets, skillCounts] = await Promise.all([
-    questionBucketCounts(categoryField, skills, channel),
-    questionSkillCounts(categoryField, skills),
-  ]);
+  const [buckets, skillCounts] = await poolCounts(deepestCategoryCode(framework), skills, channel);
   return poolProblems(skills, target, buckets, skillCounts, settings);
+}
+
+/** Live counts the pool checks read: per skill x level (job allocation) and per skill (knowlg-service floor); throws if the searches fail. */
+export function poolCounts(categoryField: string, skills: string[], channel?: string) {
+  return Promise.all([questionBucketCounts(categoryField, skills, channel), questionSkillCounts(categoryField, skills)]);
 }
 
 /** Child ids + lastUpdatedOn — either changing means the job's /add (and /remove) landed. */

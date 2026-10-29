@@ -60,7 +60,14 @@
     "saveAndGenerate": "सहेजें और तैयार करें",
     "saveAndGenerateHint": "सहेजता है, फिर वर्तमान कौशल और कठिनाई लक्ष्य के लिए प्रश्न-संग्रह से प्रश्न चुनता है",
     "regenerateQuestions": "फिर से तैयार करें",
-    "regenerateQuestionsHint": "उसी कौशल और कठिनाई लक्ष्य के लिए प्रश्नों का नया यादृच्छिक सेट चुनें"
+    "regenerateQuestionsHint": "उसी कौशल और कठिनाई लक्ष्य के लिए प्रश्नों का नया यादृच्छिक सेट चुनें",
+    "difficulty": "कठिनाई",
+    "selectDifficulty": "कठिनाई चुनें",
+    "dynamicAssessExampleShow": "उदाहरण देखें",
+    "dynamicAssessExampleHide": "छिपाएँ",
+    "dynamicAssessExampleIntro": "उदाहरण: आप 2 कौशल चुनते हैं और {N} आसान, {N} मध्यम और {N} कठिन माँगते हैं।",
+    "dynamicAssessExampleTotal": "हर शिक्षार्थी को {TOTAL} प्रश्न मिलते हैं।",
+    "dynamicAssessExampleEach": "हर कौशल से कम से कम {MIN} प्रश्न आएँगे।"
   },
   "messages": {
     "error": {
