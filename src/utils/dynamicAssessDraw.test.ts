@@ -197,9 +197,22 @@ describe("pool math uses the set's own multiplier", () => {
     expect(isGenerationStale(withMultiplier(four, 4), {})).toBe(false);
   });
 
-  it('treats the same children as incomplete and stale under the default multiplier (negative)', () => {
+  it('treats the same children as incomplete under the default multiplier, and stale when the set stores another (negative)', () => {
     expect(isGenerationComplete(withMultiplier(four, undefined))).toBe(false);
-    expect(isGenerationStale(withMultiplier(four, undefined), {})).toBe(true);
+    expect(isGenerationStale(withMultiplier(four, 2), {})).toBe(true);
+  });
+
+  it('does not flag a set without its own multiplier whose pool fits one whole multiplier, e.g. an older x3 set (negative)', () => {
+    const three = [...level('e', 'EASY', 3), ...level('m', 'MEDIUM', 6)];
+    expect(isGenerationStale(withMultiplier(three, undefined), {})).toBe(false);
+    expect(isGenerationStale(withMultiplier(four, undefined), {})).toBe(false);
+  });
+
+  it('still flags a set without its own multiplier when the target no longer fits its pool (positive)', () => {
+    const three = [...level('e', 'EASY', 3), ...level('m', 'MEDIUM', 6)];
+    expect(isGenerationStale({ ...withMultiplier(three, undefined), metadata: { difficultyTarget: { E: 1, M: 1, D: 0 } } }, {})).toBe(true);
+    expect(isGenerationStale({ ...withMultiplier(three, undefined), metadata: { difficultyTarget: { E: 1, M: 2, D: 1 } } }, {})).toBe(true);
+    expect(isGenerationStale({ ...withMultiplier(three, undefined), metadata: { difficultyTarget: { E: 2, M: 2, D: 0 } } }, {})).toBe(true);
   });
 
   it('caps each level of the draw at children / multiplier (positive)', () => {

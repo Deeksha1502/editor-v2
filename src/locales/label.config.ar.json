@@ -251,10 +251,12 @@
       "dynamicAssessPending": "لم تظهر الأسئلة بعد. قد يكون الإنشاء لا يزال جاريًا، أو ربما فشل (مثلًا بسبب قلة الأسئلة لإحدى المهارات). أعد فتح مجموعة الأسئلة هذه بعد لحظات، أو تحقّق من المجموعة وحاول مرة أخرى.",
       "difficultyTargetEmpty": "يجب أن يحتوي {FIELD} على سؤال واحد على الأقل",
       "dynamicAssessSkillPool": "تحتاج كل مهارة إلى {NEEDED} أسئلة منشورة على الأقل. عددها قليل جدًا لـ: {SKILLS}",
-      "dynamicAssessTooManySkills": "مع {COUNT} مهارات، يجب أن يكون مجموع هدف الصعوبة {NEEDED} على الأقل (تحصل كل مهارة على {MIN} أسئلة على الأقل). ارفع الهدف أو أزل مهارة.",
+      "dynamicAssessTooManySkills": "المهارات المحددة: {COUNT}. يجب أن يكون مجموع هدف الصعوبة {NEEDED} على الأقل (تحصل كل مهارة على {MIN} أسئلة على الأقل). ارفع الهدف أو أزل مهارة.",
       "dynamicAssessSkillLevels": "لا توجد أسئلة كافية في مستويات الصعوبة المحددة لـ: {SKILLS}. يجب أن توفّر كل مهارة {MIN} أسئلة على الأقل في هذه المستويات.",
       "dynamicAssessSavedNotGenerated": "تم الحفظ، لكن لم تتم إعادة إنشاء الأسئلة: {REASON}",
-      "dynamicAssessPendingSave": "لا يزال إنشاء الأسئلة جاريًا. أعد فتح مجموعة الأسئلة هذه قبل الحفظ."
+      "dynamicAssessPendingSave": "لا يزال إنشاء الأسئلة جاريًا. أعد فتح مجموعة الأسئلة هذه قبل الحفظ.",
+      "dynamicAssessStopped": "تم إيقاف انتظار الأسئلة. قد يكتمل الإنشاء في الخلفية؛ أعد فتح مجموعة الأسئلة هذه بعد لحظات لرؤيتها.",
+      "dynamicAssessCancelled": "تم إلغاء الإنشاء. لم يتم إنشاء أي أسئلة."
     },
     "success": {
       "001": "تم حفظ المحتوى",
@@ -496,6 +498,7 @@
     "dynamicAssessExampleHide": "إخفاء",
     "dynamicAssessExampleIntro": "مثال: تختار مهارتين وتطلب {N} سهلة و{N} متوسطة و{N} صعبة.",
     "dynamicAssessExampleTotal": "يحصل كل متعلم على {TOTAL} أسئلة.",
-    "dynamicAssessExampleEach": "سيأتي {MIN} أسئلة على الأقل من كل مهارة."
+    "dynamicAssessExampleEach": "سيأتي {MIN} أسئلة على الأقل من كل مهارة.",
+    "dynamicAssessCancelGenerating": "إلغاء"
   }
 }

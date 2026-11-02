@@ -7,6 +7,7 @@ import { useSaveQuestion, buildLiveQuestionMeta } from '../../hooks/useSaveQuest
 import { useEditorStore } from '../../store/editor.store';
 import { getUserId, isEditingAllowed } from '../../utils/context';
 import { labelFrom } from '../../utils/labels';
+import { difficultyLevelField } from '../../utils/difficultyLevelField';
 import { useLabels } from '../../hooks/useLabels';
 import SparkMetaForm, { SingleSelectDropdown } from '../SparkMetaForm/SparkMetaForm';
 import formStyles from '../SparkMetaForm/SparkMetaForm.module.scss';
@@ -371,7 +372,9 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
   // order. Falls back to rendering nothing before Framework if the config
   // has no 'name' field.
   const titleField = questionFormConfig?.find((f) => f.code === 'name');
-  const restQuestionFields = (questionFormConfig ?? []).filter((f) => f.code !== 'name');
+  // difficultyLevel is drawn by the Difficulty picker below, so a config that lists it controls the picker instead of adding a second field.
+  const restQuestionFields = (questionFormConfig ?? []).filter((f) => f.code !== 'name' && f.code !== 'difficultyLevel');
+  const difficultyField = difficultyLevelField(questionFormConfig);
 
   // Required-field validity of the Details (childMetadata) form below —
   // gates Save so questions can't reach review with missing metadata. Split
@@ -590,23 +593,25 @@ export default function QuestionEditor({ editorMode, onBack }: QuestionEditorPro
                 categoryOrder={categoryOrder}
                 showAllSections
               />
-              <div className={formStyles.field}>
-                <label htmlFor="question-difficulty-picker" className={formStyles.label}>
-                  {L('ui.difficulty', 'Difficulty')}
-                </label>
-                <SingleSelectDropdown
-                  fieldId="question-difficulty-picker"
-                  value={difficultyLevel}
-                  options={[
-                    { value: 'EASY', label: L('ui.difficultyEasy', 'Easy') },
-                    { value: 'MEDIUM', label: L('ui.difficultyMedium', 'Medium') },
-                    { value: 'DIFFICULT', label: L('ui.difficultyDifficult', 'Difficult') },
-                  ]}
-                  disabled={isReadOnly}
-                  placeholder={L('ui.selectDifficulty', 'Select difficulty')}
-                  onChange={setDifficultyLevel}
-                />
-              </div>
+              {difficultyField.visible && (
+                <div className={formStyles.field}>
+                  <label htmlFor="question-difficulty-picker" className={formStyles.label}>
+                    {difficultyField.label ?? L('ui.difficulty', 'Difficulty')}
+                  </label>
+                  <SingleSelectDropdown
+                    fieldId="question-difficulty-picker"
+                    value={difficultyLevel}
+                    options={[
+                      { value: 'EASY', label: L('ui.difficultyEasy', 'Easy') },
+                      { value: 'MEDIUM', label: L('ui.difficultyMedium', 'Medium') },
+                      { value: 'DIFFICULT', label: L('ui.difficultyDifficult', 'Difficult') },
+                    ]}
+                    disabled={isReadOnly || !difficultyField.editable}
+                    placeholder={L('ui.selectDifficulty', 'Select difficulty')}
+                    onChange={setDifficultyLevel}
+                  />
+                </div>
+              )}
             </div>
           )}
 

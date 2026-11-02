@@ -31,6 +31,21 @@ describe('question difficulty in the save payload (Dynamic Assess pool)', () => 
     setUpQuestion('');
     expect(buildLiveQuestionMeta()?.questionMeta).not.toHaveProperty('difficultyLevel');
   });
+
+  it('sends null to remove a difficulty the question was loaded with and the author cleared (positive)', () => {
+    setUpQuestion('');
+    useQuestionStore.setState({ activeQuestion: { identifier: 'do_q1', name: 'q', difficultyLevel: 'DIFFICULT' } as IQuestion });
+    expect(buildLiveQuestionMeta()?.questionMeta.difficultyLevel).toBeNull();
+  });
+
+  it('uses the last save in this session: cleared after picking one sends null, cleared twice sends nothing (positive/negative)', () => {
+    setUpQuestion('');
+    useQuestionStore.setState({ activeQuestion: { identifier: 'do_q1', name: 'q' } as IQuestion });
+    useTreeStore.setState({ treeCache: { 'temp-q1': { difficultyLevel: 'EASY' } } });
+    expect(buildLiveQuestionMeta()?.questionMeta.difficultyLevel).toBeNull();
+    useTreeStore.setState({ treeCache: { 'temp-q1': { difficultyLevel: null } } });
+    expect(buildLiveQuestionMeta()?.questionMeta).not.toHaveProperty('difficultyLevel');
+  });
 });
 
 describe('normalizeDifficultyLevel / loading a question', () => {

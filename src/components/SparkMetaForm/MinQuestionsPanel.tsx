@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useLabels } from '../../hooks/useLabels';
 import { useDynamicSkillField } from '../../hooks/useDynamicSkillField';
 import { dynamicAssessSettings, selectedSkills } from '../../utils/dynamicAssessDraw';
-import type { DifficultyTarget } from './SparkMetaForm';
+import type { DifficultyTarget } from '../../utils/difficultyTarget';
+import styles from './SparkMetaForm.module.scss';
 
 type Label = (key: string, fallback: string) => string;
 
@@ -40,19 +41,19 @@ export function MinQuestionsPanel({ values, target }: { values: Record<string, u
     <div
       role="status"
       data-testid="dynamic-assess-min-panel"
-      style={{ marginTop: 12, padding: '12px 14px', border: `1px solid ${short ? 'var(--sb-red-border)' : 'var(--sb-border)'}`, borderRadius: 8 }}
+      className={short ? `${styles.minPanel} ${styles.minPanelShort}` : styles.minPanel}
     >
-      <div style={{ fontSize: 13, fontWeight: 600 }}>{L('ui.dynamicAssessMinTitle', 'Minimum questions per skill')}</div>
-      <p style={{ margin: '4px 0 10px', fontSize: 13, color: 'var(--sb-text-muted)' }}>
+      <div className={styles.minPanelTitle}>{L('ui.dynamicAssessMinTitle', 'Minimum questions per skill')}</div>
+      <p className={styles.minPanelText}>
         {short
           ? fill(L('ui.dynamicAssessMinNeeds', 'Each selected skill needs at least {MIN} questions; increase the total to at least {MINIMUM}.'), { MIN: minCriteria, MINIMUM: minimum })
           : fill(L('ui.dynamicAssessMinOk', 'Each selected skill needs at least {MIN} questions.'), { MIN: minCriteria })}
       </p>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 12, color: 'var(--sb-text-muted)' }}>
+      <div className={styles.minPanelFooter}>
         <span>{fill(L('ui.dynamicAssessMinFooter', 'Total: {TOTAL} · Minimum: {MINIMUM}'), { TOTAL: total, MINIMUM: minimum })}</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span className={styles.minPanelActions}>
           {short && (
-            <span style={{ padding: '2px 8px', borderRadius: 999, fontWeight: 600, color: 'var(--sb-red)', background: 'var(--sb-red-soft)', border: '1px solid var(--sb-red-border)' }}>
+            <span className={styles.minPanelBadge}>
               {L('ui.dynamicAssessNeedsAdjustment', 'Needs adjustment')}
             </span>
           )}
@@ -60,16 +61,16 @@ export function MinQuestionsPanel({ values, target }: { values: Record<string, u
             type="button"
             aria-expanded={expanded}
             onClick={() => setExpanded((v) => !v)}
-            style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', color: 'var(--accent, var(--sb-text))', fontSize: 12, fontWeight: 600 }}
+            className={styles.minPanelToggle}
           >
             {expanded ? `${L('ui.dynamicAssessExampleHide', 'Hide')} ▴` : `${L('ui.dynamicAssessExampleShow', 'See an example')} ▾`}
           </button>
         </span>
       </div>
       {expanded && (
-        <div data-testid="dynamic-assess-example" style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--sb-border)', fontSize: 13 }}>
-          <p style={{ margin: '0 0 4px' }}>{example.intro}</p>
-          <ul style={{ margin: 0, paddingLeft: 18 }}>
+        <div data-testid="dynamic-assess-example" className={styles.minPanelExample}>
+          <p className={styles.minPanelExampleIntro}>{example.intro}</p>
+          <ul className={styles.minPanelExampleList}>
             {example.points.map((line) => <li key={line}>{line}</li>)}
           </ul>
         </div>

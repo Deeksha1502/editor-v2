@@ -15,6 +15,7 @@ import { htmlToText } from '../../utils/html';
 import { useLabels } from '../../hooks/useLabels';
 import { label } from '../../utils/labels';
 import { MinQuestionsPanel } from './MinQuestionsPanel';
+import { toDifficultyTarget, serializeDifficultyTarget, type DifficultyTarget } from '../../utils/difficultyTarget';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -164,35 +165,8 @@ function TimerHmsField({ seconds, disabled, onCommit, onBlur }: {
   );
 }
 
-// Dynamic Assess difficultyTarget: { E, M, D } counts entered as three number inputs.
-
-export interface DifficultyTarget {
-  E?: number;
-  M?: number;
-  D?: number;
-}
-
-export function toDifficultyTarget(v: unknown): DifficultyTarget {
-  // The API returns difficultyTarget JSON-stringified (the OCD declares it a string), so parse strings first.
-  let obj: unknown = v;
-  if (typeof v === 'string' && v.trim()) {
-    try { obj = JSON.parse(v); } catch { obj = undefined; }
-  }
-  if (obj && typeof obj === 'object') {
-    const o = obj as Record<string, unknown>;
-    return {
-      E: Number(o.E) || 0,
-      M: Number(o.M) || 0,
-      D: Number(o.D) || 0,
-    };
-  }
-  return { E: 0, M: 0, D: 0 };
-}
-
-/** Writes the string type the OCD declares rather than relying on the backend accepting either shape. */
-function serializeDifficultyTarget(v: DifficultyTarget): string {
-  return JSON.stringify({ E: v.E ?? 0, M: v.M ?? 0, D: v.D ?? 0 });
-}
+// Dynamic Assess difficultyTarget: { E, M, D } counts entered as three number inputs; re-exported for existing importers.
+export { toDifficultyTarget, type DifficultyTarget };
 
 function DifficultyTargetInput({ value, disabled, onCommit, groupLabel }: {
   value: DifficultyTarget;
@@ -201,10 +175,14 @@ function DifficultyTargetInput({ value, disabled, onCommit, groupLabel }: {
   /** The field's own label, so screen readers announce the three counts as one group. */
   groupLabel?: string;
 }) {
+  // A cleared box stays blank while the author retypes; the committed value is 0 until then, so validation sees what is shown on blur.
+  const [drafts, setDrafts] = useState<Partial<Record<keyof DifficultyTarget, string>>>({});
   const set = (key: keyof DifficultyTarget, raw: string) => {
+    setDrafts((d) => ({ ...d, [key]: raw }));
     const n = raw === '' ? 0 : Math.max(0, Math.floor(Number(raw)) || 0);
     onCommit({ ...value, [key]: n });
   };
+  const clearDraft = (key: keyof DifficultyTarget) => setDrafts(({ [key]: _dropped, ...rest }) => rest);
 
   const L = useLabels();
   const rows: Array<{ key: keyof DifficultyTarget; text: string }> = [
@@ -214,18 +192,19 @@ function DifficultyTargetInput({ value, disabled, onCommit, groupLabel }: {
   ];
 
   return (
-    <div style={{ display: 'flex', gap: 12 }} role="group" aria-label={groupLabel || undefined}>
+    <div className={styles.difficultyTarget} role="group" aria-label={groupLabel || undefined}>
       {rows.map(({ key, text }) => (
-        <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-          <span style={{ fontSize: 12, color: 'var(--sb-text-muted)' }} aria-hidden="true">{text}</span>
+        <div key={key} className={styles.difficultyTargetCell}>
+          <span className={styles.difficultyTargetLabel} aria-hidden="true">{text}</span>
           <input
             type="number"
             min={0}
             step={1}
             className={styles.input}
             aria-label={text}
-            value={value[key] ?? 0}
+            value={drafts[key] ?? value[key] ?? 0}
             onChange={(e) => set(key, e.target.value)}
+            onBlur={() => clearDraft(key)}
             disabled={disabled}
           />
         </div>

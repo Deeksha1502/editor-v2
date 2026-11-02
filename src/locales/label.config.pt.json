@@ -251,10 +251,12 @@
       "dynamicAssessPending": "As questões ainda não apareceram. A geração pode ainda estar em andamento ou pode ter falhado (por exemplo, poucas questões para uma habilidade). Reabra este conjunto de questões em instantes ou verifique o banco e tente novamente.",
       "difficultyTargetEmpty": "{FIELD} deve ter pelo menos uma questão",
       "dynamicAssessSkillPool": "Cada habilidade precisa de pelo menos {NEEDED} questões publicadas. Poucas para: {SKILLS}",
-      "dynamicAssessTooManySkills": "Com {COUNT} habilidades, a Meta de dificuldade deve somar pelo menos {NEEDED} (cada habilidade recebe pelo menos {MIN} questões). Aumente a meta ou remova uma habilidade.",
+      "dynamicAssessTooManySkills": "Habilidades selecionadas: {COUNT}. A Meta de dificuldade deve somar pelo menos {NEEDED} (cada habilidade recebe pelo menos {MIN} questões). Aumente a meta ou remova uma habilidade.",
       "dynamicAssessSkillLevels": "Não há questões suficientes nos níveis de dificuldade escolhidos para: {SKILLS}. Cada habilidade precisa fornecer pelo menos {MIN} questões nesses níveis.",
       "dynamicAssessSavedNotGenerated": "Salvo, mas as questões não foram geradas novamente: {REASON}",
-      "dynamicAssessPendingSave": "As questões ainda estão sendo geradas. Reabra este conjunto de questões antes de salvar."
+      "dynamicAssessPendingSave": "As questões ainda estão sendo geradas. Reabra este conjunto de questões antes de salvar.",
+      "dynamicAssessStopped": "Parou de aguardar as questões. A geração ainda pode terminar em segundo plano; reabra este conjunto de questões em instantes para vê-las.",
+      "dynamicAssessCancelled": "Geração cancelada. Nenhuma questão foi gerada."
     },
     "success": {
       "001": "Conteúdo salvo",
@@ -487,7 +489,8 @@
     "dynamicAssessExampleHide": "Ocultar",
     "dynamicAssessExampleIntro": "Exemplo: você escolhe 2 habilidades e pede {N} fáceis, {N} médias e {N} difíceis.",
     "dynamicAssessExampleTotal": "Cada aluno recebe {TOTAL} questões.",
-    "dynamicAssessExampleEach": "No mínimo {MIN} questões virão de cada habilidade."
+    "dynamicAssessExampleEach": "No mínimo {MIN} questões virão de cada habilidade.",
+    "dynamicAssessCancelGenerating": "Cancelar"
   },
   "categoryLabels": {
     "Multiselect Multiple Choice Question": "Pergunta de Múltipla Escolha",

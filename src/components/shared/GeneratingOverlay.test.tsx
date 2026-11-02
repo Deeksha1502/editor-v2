@@ -15,6 +15,15 @@ describe('GeneratingOverlay', () => {
   it('renders nothing when not generating (negative)', () => {
     expect(renderToStaticMarkup(<GeneratingOverlay open={false} />)).toBe('');
   });
+
+  it('offers Cancel, disabled once pressed while the wait winds down (positive)', () => {
+    expect(renderToStaticMarkup(<GeneratingOverlay open onCancel={() => {}} />)).toMatch(/<button[^>]*>Cancel<\/button>/);
+    expect(renderToStaticMarkup(<GeneratingOverlay open onCancel={() => {}} stopping />)).toMatch(/<button[^>]*disabled=""[^>]*>Cancel<\/button>/);
+  });
+
+  it('has no Cancel when no handler is given (negative)', () => {
+    expect(renderToStaticMarkup(<GeneratingOverlay open />)).not.toContain('<button');
+  });
 });
 
 describe('StaleSettingsBanner', () => {

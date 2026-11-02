@@ -266,10 +266,12 @@
       "dynamicAssessPending": "Questions haven't appeared yet. Generation may still be running, or it may have failed (for example, too few questions for a skill). Reopen this question set in a moment, or check the pool and try again.",
       "difficultyTargetEmpty": "{FIELD} must have at least one question",
       "dynamicAssessSkillPool": "Each skill needs at least {NEEDED} Live questions. Too few for: {SKILLS}",
-      "dynamicAssessTooManySkills": "With {COUNT} skills, the Difficulty Target must add up to at least {NEEDED} (each skill gets at least {MIN} questions). Raise the target or remove a skill.",
+      "dynamicAssessTooManySkills": "Selected skills: {COUNT}. The Difficulty Target must add up to at least {NEEDED} (each skill gets at least {MIN} questions). Raise the target or remove a skill.",
       "dynamicAssessSkillLevels": "Not enough questions at the selected difficulty levels for: {SKILLS}. Each skill needs at least {MIN} questions it can supply at those levels.",
       "dynamicAssessSavedNotGenerated": "Saved, but the questions were not regenerated: {REASON}",
-      "dynamicAssessPendingSave": "Questions are still being generated. Reopen this question set before saving."
+      "dynamicAssessPendingSave": "Questions are still being generated. Reopen this question set before saving.",
+      "dynamicAssessStopped": "Stopped waiting for questions. Generation may still finish in the background; reopen this question set in a moment to see them.",
+      "dynamicAssessCancelled": "Generation cancelled. No questions were generated."
     },
     "success": {
       "001": "Content is saved",
@@ -505,6 +507,7 @@
     "dynamicAssessExampleHide": "Hide",
     "dynamicAssessExampleIntro": "Example: you pick 2 skills and ask for {N} Easy, {N} Medium and {N} Difficult.",
     "dynamicAssessExampleTotal": "Each learner gets {TOTAL} questions.",
-    "dynamicAssessExampleEach": "Minimum {MIN} questions will come from each skill."
+    "dynamicAssessExampleEach": "Minimum {MIN} questions will come from each skill.",
+    "dynamicAssessCancelGenerating": "Cancel"
   }
 }

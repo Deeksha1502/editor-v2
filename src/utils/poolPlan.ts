@@ -4,6 +4,8 @@ export const PLAN_LEVELS = ['E', 'M', 'D'] as const;
 export type PlanLevel = typeof PLAN_LEVELS[number];
 
 export interface PoolPlan {
+  /** No skills or a zero E+M+D total: there is nothing to plan, which callers report as missing inputs rather than infeasible. */
+  noInputs: boolean;
   /** minCriteria x skills exceeds the E+M+D total (the job's feasibility check). */
   infeasible: boolean;
   /** Levels the allocation can't fill: covered is in learner questions (each needs multiplier x in the pool). */
@@ -21,9 +23,8 @@ export function planPool(
 ): PoolPlan {
   const want = (l: PlanLevel) => Math.max(0, Number(target[l]) || 0);
   const total = PLAN_LEVELS.reduce((sum, l) => sum + want(l), 0);
-  if (total <= 0 || skills.length === 0 || minCriteria * skills.length > total) {
-    return { infeasible: true, uncovered: [], shortSkills: [] };
-  }
+  if (total <= 0 || skills.length === 0) return { noInputs: true, infeasible: false, uncovered: [], shortSkills: [] };
+  if (minCriteria * skills.length > total) return { noInputs: false, infeasible: true, uncovered: [], shortSkills: [] };
   // A bucket can only supply count / multiplier, so every selection has multiplier x its size to draw from.
   const avail = (s: string, l: PlanLevel) => (multiplier > 0 ? Math.floor(Math.max(0, liveCount(s, l)) / multiplier) : liveCount(s, l));
   const remaining: Record<PlanLevel, number> = { E: want('E'), M: want('M'), D: want('D') };
@@ -74,5 +75,5 @@ export function planPool(
   const uncovered = PLAN_LEVELS
     .map((l) => ({ level: l, covered: skills.reduce((sum, s) => sum + got(s, l), 0), target: want(l) }))
     .filter((x) => x.covered < x.target);
-  return { infeasible: false, uncovered, shortSkills };
+  return { noInputs: false, infeasible: false, uncovered, shortSkills };
 }

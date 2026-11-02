@@ -1,5 +1,5 @@
 import type { INode } from '../types/editor';
-import { toDifficultyTarget } from '../components/SparkMetaForm/SparkMetaForm';
+import { toDifficultyTarget } from './difficultyTarget';
 
 // Same seeded draw as the portal's dynamicAssessSubset, so the editor shows the user the exact set they'd play; the full pool is never displayed.
 
@@ -15,14 +15,16 @@ export interface DynamicAssessSettings { minCriteria: number; multiplier: number
 
 /** The set's own minCriteria/multiplier (stored at create by knowlg-service), else the defaults for sets created before it was, or holding a value below the minimum; mirrors the job's nodeSetting. */
 export function dynamicAssessSettings(meta: Record<string, unknown> | undefined): DynamicAssessSettings {
-  const read = (v: unknown, min: number, fallback: number) => {
-    const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
-    return Number.isFinite(n) && Math.trunc(n) >= min ? Math.trunc(n) : fallback;
-  };
   return {
-    minCriteria: read(meta?.minCriteria, 0, DYNAMIC_ASSESS_MIN_CRITERIA),
-    multiplier: read(meta?.multiplier, 1, DYNAMIC_ASSESS_POOL_MULTIPLIER),
+    minCriteria: readSetting(meta?.minCriteria, 0) ?? DYNAMIC_ASSESS_MIN_CRITERIA,
+    multiplier: readSetting(meta?.multiplier, 1) ?? DYNAMIC_ASSESS_POOL_MULTIPLIER,
   };
+}
+
+/** A stored setting as an integer, or undefined when it's missing or below `min`. */
+function readSetting(v: unknown, min: number): number | undefined {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
+  return Number.isFinite(n) && Math.trunc(n) >= min ? Math.trunc(n) : undefined;
 }
 
 function hashSeed(seed: string): number {
@@ -109,10 +111,18 @@ export function isGenerationStale(
   if (children.some((c) => !c.isQuestion)) return true;
   const field = (c: INode, key: string) => c.metadata?.[key] ?? treeCache[c.identifier]?.[key];
   const target = toDifficultyTarget(meta.difficultyTarget);
-  const { multiplier } = dynamicAssessSettings(meta);
-  for (const [key, level] of LEVELS) {
-    const count = children.filter((c) => String(field(c, 'difficultyLevel') ?? '').toUpperCase() === level).length;
-    if (count !== (target[key] ?? 0) * multiplier) return true;
+  const levels = LEVELS.map(([key, level]) => ({
+    want: target[key] ?? 0,
+    count: children.filter((c) => String(field(c, 'difficultyLevel') ?? '').toUpperCase() === level).length,
+  }));
+  const ownMultiplier = readSetting(meta.multiplier, 1);
+  if (ownMultiplier !== undefined) {
+    if (levels.some(({ want, count }) => count !== want * ownMultiplier)) return true;
+  } else {
+    // Sets from before the multiplier was stored were generated at another one, so only counts that fit no single whole multiplier are stale.
+    if (levels.some(({ want, count }) => (want <= 0) !== (count === 0))) return true;
+    const ratios = new Set(levels.filter(({ want }) => want > 0).map(({ want, count }) => count / want));
+    if (ratios.size > 1 || [...ratios].some((r) => !Number.isInteger(r))) return true;
   }
   const saved = new Set(selectedSkills(meta, skillField));
   // The root's selection and the pool questions' tags both live in the framework's deepest category (e.g. "topic").

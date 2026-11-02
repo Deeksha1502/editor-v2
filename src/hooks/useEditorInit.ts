@@ -8,13 +8,15 @@ import { setApiBaseUrl, setApiSlug } from '../api/client';
 import { getContentId, isDynamicAssessQuestionSet, resolvePrimaryCategory } from '../utils/context';
 import { label, resolveUiLanguage } from '../utils/labels';
 import { apiErrorMessage, notifyError, notifySuccess } from '../utils/notify';
-import { toDifficultyTarget } from '../components/SparkMetaForm/SparkMetaForm';
+import { toDifficultyTarget } from '../utils/difficultyTarget';
 import {
-  checkPool, deepestCategoryCode, fetchFramework, generateAndWait, shouldPauseAfterPending, skillPoolErrorMessage, startEditorSession,
+  checkPool, deepestCategoryCode, fetchFramework, generateAndWait, generationCancelledMessage, generationPendingMessage, generationStoppedMessage,
+  shouldPauseAfterPending, skillPoolErrorMessage, startEditorSession, stopRequestedCheck,
 } from './useRefreshQuestionSetBody';
 import { dynamicAssessSettings, selectedSkills } from '../utils/dynamicAssessDraw';
 import type { INode } from '../types/editor';
 import type { IFramework } from '../types/framework';
+import { resolveFrameworkId } from './useFramework';
 
 interface UseEditorInitOptions {
   config: IEditorConfig;
@@ -40,7 +42,7 @@ export function useEditorInit({ config, onError }: UseEditorInitOptions) {
       // The selection lives in the framework's deepest category field; it's read before the loader shows, so a set without one opens as before.
       let framework: IFramework | undefined;
       try {
-        framework = await fetchFramework(String(meta.framework ?? ''));
+        framework = await fetchFramework(resolveFrameworkId(config, meta.framework));
       } catch {
         return; // the selection can't be read, so generation is left to Save & Generate
       }
@@ -48,6 +50,7 @@ export function useEditorInit({ config, onError }: UseEditorInitOptions) {
       if (cancelled || !skills.length) return;
 
       const { setButtonLoader } = useEditorStore.getState();
+      const isStopped = stopRequestedCheck();
       setButtonLoader('refreshBody', true);
       try {
         // Same pool check as Save & Generate, so settings the job can't fill don't block every open for the whole poll.
@@ -62,16 +65,17 @@ export function useEditorInit({ config, onError }: UseEditorInitOptions) {
         if (problems.length) { notifyError(problems.join(' ')); return; }
 
         const { result, rootNode } = await generateAndWait(
-          { contentId, refresh: refreshQuestionSetBody, read: readHierarchy, isCancelled: () => cancelled }, baselineRoot,
+          { contentId, refresh: refreshQuestionSetBody, read: readHierarchy, isCancelled: () => cancelled, isStopped }, baselineRoot,
         );
-        if (cancelled || result === 'cancelled') return;
+        if (cancelled) return;
+        if (result === 'cancelled') { if (isStopped()) notifyError(generationCancelledMessage()); return; }
         if (result === 'generated') {
           if (rootNode) { setTreeData([rootNode]); selectNode(rootNode.id); }
           notifySuccess(label('messages.success.dynamicAssessRefresh', 'Questions generated'));
         } else {
           // The editor still holds the empty tree, so saving stays allowed (it would generate); pausing would lock the author out on every open.
           if (shouldPauseAfterPending(useTreeStore.getState().treeData[0])) setButtonLoader('refreshPending', true);
-          notifyError(label('messages.error.dynamicAssessPending', 'Questions haven\'t appeared yet. Generation may still be running, or it may have failed (for example, too few questions for a skill). Reopen this question set in a moment, or check the pool and try again.'));
+          notifyError(result === 'stopped' ? generationStoppedMessage() : generationPendingMessage());
         }
       } catch (err) {
         if (!cancelled) notifyError(skillPoolErrorMessage(err) ?? apiErrorMessage(err, label('messages.error.dynamicAssessInit', 'Failed to generate questions for this question set.')), err);

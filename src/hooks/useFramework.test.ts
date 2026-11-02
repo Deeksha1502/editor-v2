@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { highestIndexCategoryCode, orderCategoryCodes } from './useFramework';
+import { highestIndexCategoryCode, orderCategoryCodes, resolveFrameworkId } from './useFramework';
+import type { IEditorConfig } from '../types/editor';
 
 describe('highestIndexCategoryCode (same rule as knowlg-service and the knowlg-publish job)', () => {
   it('picks the highest index regardless of array order (positive)', () => {
@@ -37,5 +38,20 @@ describe('orderCategoryCodes', () => {
   it('matches the plain order for Dynamic Assess when indexes are distinct (negative)', () => {
     const usual = [{ code: 'board', index: 1 }, { code: 'medium', index: 2 }, { code: 'topic', index: 3 }];
     expect(orderCategoryCodes(usual, true)).toEqual(orderCategoryCodes(usual, false));
+  });
+});
+
+describe('resolveFrameworkId (shared by the form and the Dynamic Assess skill field)', () => {
+  const config = (context: Record<string, unknown>, fw?: string[]) => ({ context, config: fw ? { framework: fw } : {} }) as unknown as IEditorConfig;
+
+  it('falls back to the host context, then config, when the set has none, so a host-supplied framework is used (positive)', () => {
+    expect(resolveFrameworkId(config({ framework: 'ctxFw' }), undefined)).toBe('ctxFw');
+    expect(resolveFrameworkId(config({}, ['cfgFw']), '')).toBe('cfgFw');
+  });
+
+  it('prefers a live pick, then the set\'s own framework, over the host (negative)', () => {
+    expect(resolveFrameworkId(config({ framework: 'ctxFw' }), 'rootFw')).toBe('rootFw');
+    expect(resolveFrameworkId(config({ framework: 'ctxFw' }), 'rootFw', 'liveFw')).toBe('liveFw');
+    expect(resolveFrameworkId(null, undefined)).toBe('');
   });
 });

@@ -6,11 +6,17 @@ const counts = (table: Record<string, Partial<Record<'E' | 'M' | 'D', number>>>)
 describe('planPool (mirrors the job allocation)', () => {
   it('accepts settings the job can fill (negative)', () => {
     expect(planPool(['Physics'], { E: 2, M: 2, D: 2 }, counts({ Physics: { E: 10, M: 10, D: 10 } }), 2, 3))
-      .toEqual({ infeasible: false, uncovered: [], shortSkills: [] });
+      .toEqual({ noInputs: false, infeasible: false, uncovered: [], shortSkills: [] });
   });
 
   it('flags minCriteria x skills above the target total as infeasible (positive)', () => {
     expect(planPool(['A', 'B', 'C', 'D'], { E: 1, M: 1, D: 1 }, counts({}), 2, 3).infeasible).toBe(true);
+  });
+
+  it('reports no skills or a zero target as missing inputs, not as infeasible (positive/negative)', () => {
+    expect(planPool([], { E: 1 }, counts({}), 2, 2)).toMatchObject({ noInputs: true, infeasible: false });
+    expect(planPool(['A'], { E: 0, M: 0, D: 0 }, counts({}), 2, 2)).toMatchObject({ noInputs: true, infeasible: false });
+    expect(planPool(['A', 'B'], { E: 1 }, counts({}), 2, 2)).toMatchObject({ noInputs: false, infeasible: true });
   });
 
   it('counts each skill bucket as floor(count / multiplier), not the union of skills (positive)', () => {
@@ -27,6 +33,6 @@ describe('planPool (mirrors the job allocation)', () => {
   it('reserves the most constrained skill first, like the job (negative)', () => {
     // B only has Easy; A has every level. B must get its Easy reservation before A takes Easy.
     const plan = planPool(['A', 'B'], { E: 2, M: 2, D: 0 }, counts({ A: { E: 30, M: 30, D: 30 }, B: { E: 6 } }), 2, 3);
-    expect(plan).toEqual({ infeasible: false, uncovered: [], shortSkills: [] });
+    expect(plan).toEqual({ noInputs: false, infeasible: false, uncovered: [], shortSkills: [] });
   });
 });

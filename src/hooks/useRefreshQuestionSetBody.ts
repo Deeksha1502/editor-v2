@@ -7,10 +7,10 @@ import { questionBucketCounts, questionSkillCounts } from '../api/content';
 import { getContentId } from '../utils/context';
 import { label } from '../utils/labels';
 import { useSaveHierarchy, type SaveOutcome } from './useSaveHierarchy';
-import { toDifficultyTarget, type DifficultyTarget } from '../components/SparkMetaForm/SparkMetaForm';
+import { toDifficultyTarget, type DifficultyTarget } from '../utils/difficultyTarget';
 import { planPool } from '../utils/poolPlan';
 import { useValidateRequiredFields } from './useValidateAndSave';
-import { highestIndexCategoryCode } from './useFramework';
+import { highestIndexCategoryCode, resolveFrameworkId } from './useFramework';
 import { getFramework } from '../api/framework';
 import { dynamicAssessSettings, isGenerationComplete, selectedSkills, type DynamicAssessSettings } from '../utils/dynamicAssessDraw';
 import { queryClient } from '../queryClient';
@@ -26,6 +26,7 @@ export function poolProblems(
   const m = settings.multiplier;
   const min = settings.minCriteria;
   const plan = planPool(skills, target, (s, l) => buckets[s]?.[l] ?? 0, min, m);
+  if (plan.noInputs) return [inputsMessage()];
   if (plan.infeasible) return [tooManySkillsMessage(skills.length, min)];
   if (plan.uncovered.length) {
     const name = { E: label('ui.difficultyEasy', 'Easy'), M: label('ui.difficultyMedium', 'Medium'), D: label('ui.difficultyDifficult', 'Difficult') };
@@ -44,8 +45,12 @@ export function poolProblems(
   return shortSkills.length ? [skillPoolMessage(min * m, shortSkills)] : [];
 }
 
+function inputsMessage(): string {
+  return label('messages.error.dynamicAssessInputs', 'Set Skill and Difficulty Target before generating questions.');
+}
+
 function tooManySkillsMessage(count: number, min: number): string {
-  return label('messages.error.dynamicAssessTooManySkills', 'With {COUNT} skills, the Difficulty Target must add up to at least {NEEDED} (each skill gets at least {MIN} questions). Raise the target or remove a skill.')
+  return label('messages.error.dynamicAssessTooManySkills', 'Selected skills: {COUNT}. The Difficulty Target must add up to at least {NEEDED} (each skill gets at least {MIN} questions). Raise the target or remove a skill.')
     .replace('{COUNT}', String(count)).replace('{NEEDED}', String(count * min)).replace('{MIN}', String(min));
 }
 
@@ -84,7 +89,8 @@ export function deepestCategoryCode(framework: IFramework | undefined): string {
 export const GENERATE_POLL_MS = 3000;
 export const GENERATE_POLL_MAX_ATTEMPTS = 40;
 
-export type GenerateResult = 'generated' | 'pending' | 'failed' | 'cancelled';
+/** 'stopped': the author pressed Cancel after the job was queued, so it may still write, like 'pending'. */
+export type GenerateResult = 'generated' | 'pending' | 'stopped' | 'failed' | 'cancelled';
 
 export interface GenerateDeps {
   contentId: string;
@@ -96,6 +102,8 @@ export interface GenerateDeps {
   maxAttempts?: number;
   /** True once the editor that started this generation has closed or reloaded; the wait then stops without touching the shared stores. */
   isCancelled?: () => boolean;
+  /** True once the author pressed the overlay's Cancel; nothing is queued after it, and a queued job is no longer waited for. */
+  isStopped?: () => boolean;
 }
 
 let editorSession = 0;
@@ -109,6 +117,31 @@ export function startEditorSession(): void {
 export function sessionCancelledCheck(): () => boolean {
   const session = editorSession;
   return () => editorSession !== session;
+}
+
+let stopRequests = 0;
+
+/** The generating overlay's Cancel: stops waiting for the current generation; the job itself keeps running server-side. */
+export function stopWaitingForGeneration(): void {
+  stopRequests += 1;
+}
+
+/** Check for a generation started now: true once Cancel has been pressed since. */
+export function stopRequestedCheck(): () => boolean {
+  const requests = stopRequests;
+  return () => stopRequests !== requests;
+}
+
+export function generationPendingMessage(): string {
+  return label('messages.error.dynamicAssessPending', 'Questions haven\'t appeared yet. Generation may still be running, or it may have failed (for example, too few questions for a skill). Reopen this question set in a moment, or check the pool and try again.');
+}
+
+export function generationStoppedMessage(): string {
+  return label('messages.error.dynamicAssessStopped', 'Stopped waiting for questions. Generation may still finish in the background; reopen this question set in a moment to see them.');
+}
+
+export function generationCancelledMessage(): string {
+  return label('messages.error.dynamicAssessCancelled', 'Generation cancelled. No questions were generated.');
 }
 
 /** Whether a timed-out generation must pause saving, given the tree the editor would save: only children it could write back over the job's result need it. */
@@ -153,14 +186,16 @@ export async function generateAndWait(
   const pollMs = deps.pollMs ?? GENERATE_POLL_MS;
   const maxAttempts = deps.maxAttempts ?? GENERATE_POLL_MAX_ATTEMPTS;
   const cancelled = deps.isCancelled ?? (() => false);
+  const stopped = deps.isStopped ?? (() => false);
   const baseline = snapshot(baselineRoot);
-  if (cancelled()) return { result: 'cancelled' };
+  if (cancelled() || stopped()) return { result: 'cancelled' };
   await deps.refresh(deps.contentId);
 
   let latest: INode | undefined;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     await sleep(pollMs);
     if (cancelled()) return { result: 'cancelled' };
+    if (stopped()) return { result: 'stopped', rootNode: latest };
     // A failed read (e.g. a network blip) is retried on the next attempt; giving up here would unblock saving mid-write.
     let current: INode | undefined;
     try { current = (await deps.read(deps.contentId)).rootNode; } catch { continue; }
@@ -198,6 +233,7 @@ export function useRefreshQuestionSetBody() {
     if (!validateRequiredFields()) return false;
 
     const isCancelled = sessionCancelledCheck();
+    const isStopped = stopRequestedCheck();
     setButtonLoader('refreshBody', true);
     const blocked = async (reason: string): Promise<boolean> => {
       if (opts.saveIfBlocked && (await saveWithOutcome()) === 'saved') {
@@ -220,7 +256,7 @@ export function useRefreshQuestionSetBody() {
       // The selection lives in the framework's deepest category field, so the framework is needed before the inputs can be read.
       let framework: IFramework | undefined;
       try {
-        framework = await fetchFramework(String(meta.framework ?? ''));
+        framework = await fetchFramework(resolveFrameworkId(config, meta.framework, useEditorStore.getState().contentFramework));
       } catch (err) {
         if (!isCancelled()) notifyError(label('messages.error.dynamicAssessPoolCheck', 'Could not verify question availability. Please try again.'), err);
         return false;
@@ -228,15 +264,12 @@ export function useRefreshQuestionSetBody() {
       const skills = selectedSkills(meta, deepestCategoryCode(framework));
       const target = toDifficultyTarget(meta.difficultyTarget);
       if (!skills.length || (target.E ?? 0) + (target.M ?? 0) + (target.D ?? 0) <= 0) {
-        return await blocked(label('messages.error.dynamicAssessInputs', 'Set Skill and Difficulty Target before generating questions.'));
+        return await blocked(inputsMessage());
       }
       const settings = dynamicAssessSettings(meta);
-      // A target below the panel's minimum is rejected without saving, unlike a pool shortfall, so the set never keeps settings that can't be generated.
+      // Like the other blocks, a target below the panel's minimum still saves the author's other edits (on Save) and says why nothing was generated.
       const tooLow = belowSkillMinimum(skills.length, target, settings);
-      if (tooLow) {
-        notifyError(tooLow);
-        return false;
-      }
+      if (tooLow) return await blocked(tooLow);
       let problems: string[];
       try {
         problems = await checkPool(skills, target, framework, config?.context?.channel, settings);
@@ -246,10 +279,12 @@ export function useRefreshQuestionSetBody() {
       }
       if (isCancelled()) return false;
       if (problems.length) return await blocked(problems.join(' '));
+      if (isStopped()) { notifyError(generationCancelledMessage()); return false; }
 
       const { result, rootNode } = await saveThenGenerate({
-        contentId, save: saveWithOutcome, refresh: refreshQuestionSetBody, read: readHierarchy, isCancelled,
+        contentId, save: saveWithOutcome, refresh: refreshQuestionSetBody, read: readHierarchy, isCancelled, isStopped,
       });
+      if (result === 'cancelled' && isStopped() && !isCancelled()) notifyError(generationCancelledMessage());
       if (result === 'failed' || result === 'cancelled') return false;
       if (result === 'generated') {
         if (rootNode) setTreeData([rootNode]);
@@ -258,10 +293,7 @@ export function useRefreshQuestionSetBody() {
       }
       // The job may be mid-write (old + new children): keep that tree out of the editor and pause saving until it's reopened, unless there's nothing a save could write back.
       if (shouldPauseAfterPending(useTreeStore.getState().treeData[0])) setButtonLoader('refreshPending', true);
-      notifyError(label(
-        'messages.error.dynamicAssessPending',
-        'Questions haven\'t appeared yet. Generation may still be running, or it may have failed (for example, too few questions for a skill). Reopen this question set in a moment, or check the pool and try again.',
-      ));
+      notifyError(result === 'stopped' ? generationStoppedMessage() : generationPendingMessage());
       return false;
     } catch (err) {
       console.error('[useRefreshQuestionSetBody] refresh failed', err);

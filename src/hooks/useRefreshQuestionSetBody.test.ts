@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   saveThenGenerate, generateAndWait, poolProblems, deepestCategoryCode, skillShortfalls, skillPoolErrorMessage,
-  startEditorSession, sessionCancelledCheck, shouldPauseAfterPending, belowSkillMinimum,
+  startEditorSession, sessionCancelledCheck, shouldPauseAfterPending, belowSkillMinimum, stopRequestedCheck, stopWaitingForGeneration,
 } from './useRefreshQuestionSetBody';
 import type { INode } from '../types/editor';
 import type { IFramework } from '../types/framework';
@@ -21,6 +21,17 @@ describe('poolProblems (mirrors the job, so whatever passes can be generated)', 
 
   it('reports too many skills for the target total (positive)', () => {
     expect(poolProblems(['A', 'B'], { E: 3, M: 0, D: 0 }, { A: ten, B: ten }, { A: 30, B: 30 })[0]).toContain('at least 4');
+  });
+
+  it('names the skill count without "1 skills" grammar (positive)', () => {
+    const out = poolProblems(['A'], { E: 1, M: 0, D: 0 }, { A: ten }, { A: 30 })[0];
+    expect(out).toContain('Selected skills: 1.');
+    expect(out).not.toMatch(/With \d+ skills/);
+  });
+
+  it('reports missing inputs, never "0 skills ... at least 0", for no skills or a zero target (negative)', () => {
+    expect(poolProblems([], { E: 2, M: 0, D: 0 }, {}, {})).toEqual(['Set Skill and Difficulty Target before generating questions.']);
+    expect(poolProblems(['A'], { E: 0, M: 0, D: 0 }, { A: ten }, { A: 30 })[0]).not.toContain('at least 0');
   });
 
   it('reports a skill that would be left out of the pool at the chosen levels (positive)', () => {
@@ -235,6 +246,25 @@ describe('generateAndWait robustness', () => {
     const out = await generateAndWait({ contentId: 'do_root', refresh, read: vi.fn(), sleep: noSleep, isCancelled: () => true }, root([]).rootNode);
     expect(out.result).toBe('cancelled');
     expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe('Cancel on the generating overlay', () => {
+  it('stops waiting for a queued job and reports it as stopped, like a timeout (positive)', async () => {
+    const isStopped = stopRequestedCheck();
+    const read = vi.fn(async () => { stopWaitingForGeneration(); return root(['old'], 't0'); });
+    const out = await generateAndWait({ contentId: 'do_root', refresh: async () => {}, read, sleep: noSleep, isStopped }, root(['old'], 't0').rootNode);
+    expect(out.result).toBe('stopped');
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  it('queues nothing when Cancel came before refresh-body, and only affects generations started earlier (negative)', async () => {
+    const isStopped = stopRequestedCheck();
+    stopWaitingForGeneration();
+    const refresh = vi.fn(async () => {});
+    expect((await generateAndWait({ contentId: 'do_root', refresh, read: vi.fn(), sleep: noSleep, isStopped }, root([]).rootNode)).result).toBe('cancelled');
+    expect(refresh).not.toHaveBeenCalled();
+    expect(stopRequestedCheck()()).toBe(false);
   });
 });
 
