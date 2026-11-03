@@ -34,7 +34,7 @@ function categoryCodesForFramework(frameworkId: string | undefined): Set<string>
 }
 
 
-function buildSavePayload(
+export function buildSavePayload(
   nodes: INode[],
   treeCache: Record<string, Record<string, unknown>>,
   channel: string,

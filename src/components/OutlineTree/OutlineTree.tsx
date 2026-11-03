@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Icon } from '../shared/Icon';
 import { useLabels } from '../../hooks/useLabels';
 import { useTreeStore } from '../../store/tree.store';
@@ -8,6 +8,11 @@ import { useValidateAndSave } from '../../hooks/useValidateAndSave';
 import type { INode } from '../../types/editor';
 import { resolveQuestionType } from '../../registry';
 import { detectNodeKind } from '../../utils/nodeKind';
+import { getUserId } from '../../utils/context';
+import { useIsDynamicAssess } from '../../hooks/useIsDynamicAssess';
+import { withDynamicDraw } from '../../utils/dynamicAssessDraw';
+
+const EMPTY_CACHE: Record<string, Record<string, unknown>> = {};
 
 // ---------------------------------------------------------------------------
 // Props
@@ -116,6 +121,8 @@ interface NodeProps {
   openIds: Set<string>;
   contextMenuId: string | null;
   isEditMode: boolean;
+  /** Dynamic Assess in edit mode: no curation, but a question's menu still offers Preview. */
+  previewOnlyMenu?: boolean;
   onSelect: (id: string) => void;
   onToggle: (id: string) => void;
   onOpenCtx: (id: string) => void;
@@ -126,7 +133,7 @@ interface NodeProps {
 }
 
 const TreeNode: React.FC<NodeProps> = ({
-  node, selectedId, openIds, contextMenuId, isEditMode,
+  node, selectedId, openIds, contextMenuId, isEditMode, previewOnlyMenu = false,
   onSelect, onToggle, onOpenCtx, onCloseCtx,
   onAddSection, onDelete, onPreview,
 }) => {
@@ -191,7 +198,7 @@ const TreeNode: React.FC<NodeProps> = ({
 
 
         {/* Context menu */}
-        {isEditMode && (
+        {(isEditMode || (previewOnlyMenu && isQuestion)) && (
           <div style={{ position: 'relative', marginLeft: isQuestion ? undefined : '2px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
             <button
               style={{
@@ -232,6 +239,7 @@ const TreeNode: React.FC<NodeProps> = ({
               openIds={openIds}
               contextMenuId={contextMenuId}
               isEditMode={isEditMode}
+              previewOnlyMenu={previewOnlyMenu}
               onSelect={onSelect}
               onToggle={onToggle}
               onOpenCtx={onOpenCtx}
@@ -259,10 +267,20 @@ const OutlineTree: React.FC<OutlineTreeProps> = ({ onCollapse }) => {
   const addNode = useTreeStore((s) => s.addNode);
   const deleteNode = useTreeStore((s) => s.deleteNode);
   const editorMode = useEditorStore((s) => s.editorMode);
+  const isDynamicAssess = useIsDynamicAssess();
+  // Subscribed only for Dynamic sets, so ordinary sets don't re-render the outline on every metadata edit.
+  const treeCache = useTreeStore((s) => (isDynamicAssess ? s.treeCache : EMPTY_CACHE));
+  const userId = useEditorStore((s) => getUserId(s.editorConfig?.context));
+  // Display only: the store keeps the full pool so a save never drops the rest of it.
+  const displayTree = useMemo(
+    () => (isDynamicAssess && treeData[0] ? [withDynamicDraw(treeData[0], treeCache, userId, 'Dynamic QuestionSet'), ...treeData.slice(1)] : treeData),
+    [isDynamicAssess, treeData, treeCache, userId],
+  );
   const { openModal } = useUiStore();
   const validateAndSave = useValidateAndSave();
 
-  const isEditMode = editorMode === 'edit';
+  // Dynamic Assess children come from the pool, so no add/delete; selection and preview still work.
+  const isEditMode = editorMode === 'edit' && !isDynamicAssess;
 
   // Open root + all sections by default
   const [openIds, setOpenIds] = useState<Set<string>>(() => {
@@ -348,7 +366,7 @@ const OutlineTree: React.FC<OutlineTreeProps> = ({ onCollapse }) => {
             {L('ui.noContentYet', 'No content yet.')}
           </p>
         ) : (
-          treeData.map(node => (
+          displayTree.map(node => (
             <TreeNode
               key={node.id}
               node={node}
@@ -356,6 +374,7 @@ const OutlineTree: React.FC<OutlineTreeProps> = ({ onCollapse }) => {
               openIds={openIds}
               contextMenuId={contextMenuId}
               isEditMode={isEditMode}
+              previewOnlyMenu={editorMode === 'edit' && isDynamicAssess}
               onSelect={handleSelect}
               onToggle={handleToggle}
               onOpenCtx={setContextMenuId}
