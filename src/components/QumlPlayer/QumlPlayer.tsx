@@ -147,10 +147,10 @@ const QumlPlayer: React.FC<QumlPlayerProps> = ({ questionSetId, singleQuestionId
             const root = treeData[0];
             const questionIds = collectQuestionIds(root.children ?? []);
             const hydrated = new Map<string, Record<string, unknown>>();
+            const isDynamic = isDynamicAssessQuestionSet(resolvePrimaryCategory(editorConfig?.config?.primaryCategory as string | undefined, treeData[0]));
             if (questionIds.length) {
               try {
                 // question/list accepts at most 20 ids per request, so a Dynamic pool larger than that is fetched in batches; other sets keep the single request.
-                const isDynamic = isDynamicAssessQuestionSet(resolvePrimaryCategory(editorConfig?.config?.primaryCategory as string | undefined, treeData[0]));
                 const batches = isDynamic
                   ? Array.from({ length: Math.ceil(questionIds.length / QUESTION_LIST_LIMIT) }, (_, i) => questionIds.slice(i * QUESTION_LIST_LIMIT, (i + 1) * QUESTION_LIST_LIMIT))
                   : [questionIds];
@@ -161,6 +161,8 @@ const QumlPlayer: React.FC<QumlPlayerProps> = ({ questionSetId, singleQuestionId
               } catch { /* fall back to whatever's already in the tree */ }
             }
             metadata = nodeToHierarchy(root, treeCache, hydrated);
+            // The player sub-selects maxQuestions, so a Dynamic preview raises it to the pool size to show every question; saved metadata is unchanged.
+            if (isDynamic && metadata.maxQuestions) metadata = { ...metadata, maxQuestions: questionIds.length };
           }
         }
 
